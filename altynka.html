@@ -20,13 +20,19 @@
     background:rgba(30,14,26,.85);color:#fff;padding:9px 18px;border-radius:20px;
     font-size:15px;opacity:0;transition:.25s;pointer-events:none;white-space:nowrap}
   #toast.show{opacity:1;transform:translateX(-50%) scale(1)}
+  @media (max-width: 640px) {
+    .title{font-size:16px;left:12px;top:10px}
+    .badge{font-size:10px;right:12px;top:10px;padding:4px 9px}
+    .hud{font-size:11px;left:12px;bottom:12px;right:12px}
+    #toast{font-size:13px;top:52px;padding:7px 14px}
+  }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div class="title">Альтушка <span>—</span> грязнулька</div>
 <div class="badge" id="badge">загрузка…</div>
-<div class="hud">Потяни — повернуть и сдвинуть по телу · колесо — зум · двойной клик — сброс</div>
+<div class="hud">Потяни — повернуть · два пальца — зум · двойной клик — сброс</div>
 <div id="toast"></div>
 
 <script src="three147.min.js"></script>
@@ -606,19 +612,50 @@
 
   /* ---------- управление ---------- */
   let yaw = 0, targetYaw = 0, dist = 3.15, focusY = 0.81, targetFocusY = 0.81;
-  let drag = false, lx = 0, ly = 0;
-  canvas.addEventListener('pointerdown', e => { drag = true; lx = e.clientX; ly = e.clientY; });
-  canvas.addEventListener('pointermove', e => {
-    if (!drag) return;
-    targetYaw += (e.clientX - lx) * .008;
-    targetFocusY = Math.max(0.15, Math.min(1.72, targetFocusY - (e.clientY - ly) * 0.005));
-    lx = e.clientX; ly = e.clientY;
+  const pointers = new Map();
+  let pinchDist = 0;
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  canvas.addEventListener('pointerdown', e => {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+    }
   });
-  canvas.addEventListener('pointerup', () => drag = false);
+
+  canvas.addEventListener('pointermove', e => {
+    const prev = pointers.get(e.pointerId);
+    if (!prev) return;
+    const dx = e.clientX - prev.x;
+    const dy = e.clientY - prev.y;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.size === 1) {
+      targetYaw += dx * .008;
+      targetFocusY = clamp(targetFocusY - dy * 0.005, 0.15, 1.72);
+    } else if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinchDist > 0 && d > 0) dist = clamp(dist * (pinchDist / d), 0.42, 7);
+      pinchDist = d;
+    }
+  });
+
+  const endPointer = e => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchDist = 0;
+  };
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('pointerleave', endPointer);
+
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const k = Math.min(300, Math.abs(e.deltaY));
-    dist = Math.max(0.42, Math.min(7, dist * (1 + Math.sign(e.deltaY) * k * 0.0022)));
+    dist = clamp(dist * (1 + Math.sign(e.deltaY) * k * 0.0022), 0.42, 7);
   }, { passive: false });
   canvas.addEventListener('dblclick', () => {
     targetYaw = 0; dist = 3.15; targetFocusY = 0.81;
