@@ -26,7 +26,7 @@
 <canvas id="c"></canvas>
 <div class="title">Альтушка <span>—</span> грязнулька</div>
 <div class="badge" id="badge">загрузка…</div>
-<div class="hud">Потяни — повернуть · колесо — зум · <b>ткни по грязи</b>, чтобы стереть</div>
+<div class="hud">Потяни — повернуть и сдвинуть по телу · колесо — зум · двойной клик — сброс</div>
 <div id="toast"></div>
 
 <script src="three147.min.js"></script>
@@ -67,8 +67,8 @@
   scene.background = bgt;
 
   const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, .01, 50);
-  camera.position.set(0, 1.42, 1.0);
-  camera.lookAt(0, 1.40, 0);
+  camera.position.set(0, 0.81, 3.15);
+  camera.lookAt(0, 0.81, 0);
 
   scene.add(new THREE.HemisphereLight(0xdfe7ff, 0x4a3540, 0.75));
   const key = new THREE.DirectionalLight(0xfff1e6, 1.5);
@@ -605,19 +605,24 @@
   }
 
   /* ---------- управление ---------- */
-  let yaw = 0, targetYaw = 0, dist = 1.05, pitch = 0, targetPitch = 0, drag = false, lx = 0, ly = 0;
+  let yaw = 0, targetYaw = 0, dist = 3.15, focusY = 0.81, targetFocusY = 0.81;
+  let drag = false, lx = 0, ly = 0;
   canvas.addEventListener('pointerdown', e => { drag = true; lx = e.clientX; ly = e.clientY; });
   canvas.addEventListener('pointermove', e => {
     if (!drag) return;
     targetYaw += (e.clientX - lx) * .008;
-    targetPitch = Math.max(-.3, Math.min(.3, targetPitch + (e.clientY - ly) * .004));
+    targetFocusY = Math.max(0.15, Math.min(1.72, targetFocusY - (e.clientY - ly) * 0.005));
     lx = e.clientX; ly = e.clientY;
   });
   canvas.addEventListener('pointerup', () => drag = false);
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    dist = Math.max(.5, Math.min(4, dist + e.deltaY * .0012));
+    const k = Math.min(300, Math.abs(e.deltaY));
+    dist = Math.max(0.42, Math.min(7, dist * (1 + Math.sign(e.deltaY) * k * 0.0022)));
   }, { passive: false });
+  canvas.addEventListener('dblclick', () => {
+    targetYaw = 0; dist = 3.15; targetFocusY = 0.81;
+  });
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
@@ -626,6 +631,7 @@
 
   window.__setYaw = v => targetYaw = v;
   window.__setDist = v => dist = v;
+  window.__setFocus = v => targetFocusY = v;
   window.__camera = camera;
 
   /* ---------- рендер ---------- */
@@ -635,11 +641,11 @@
     const dt = clock.getDelta();
     if (vrm) vrm.update(dt);
     yaw += (targetYaw - yaw) * .08;
-    pitch += (targetPitch - pitch) * .08;
+    focusY += (targetFocusY - focusY) * .10;
     doll.rotation.y = yaw;
     doll.position.y = Math.sin(clock.getElapsedTime() * 1.1) * 0.003;
-    camera.position.set(0, 1.34 + pitch * .25, dist);
-    camera.lookAt(0, 1.33 + pitch * .1, 0);
+    camera.position.set(0, focusY + 0.03, dist);
+    camera.lookAt(0, focusY, 0);
     renderer.render(scene, camera);
   }
   tick();
