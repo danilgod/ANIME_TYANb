@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Альтушка-грязнулька</title>
+<style>
+  html,body{margin:0;height:100%;background:#17131c;overflow:hidden;
+    font-family:'Segoe UI',system-ui,sans-serif}
+  #c{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  .title{position:fixed;left:24px;top:16px;color:#fff;font-weight:800;font-size:22px;
+    letter-spacing:.3px}
+  .title span{color:#5fd6cf}
+  .badge{position:fixed;right:24px;top:18px;color:#cbbcc6;font-size:12px;
+    border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:6px 12px;
+    background:rgba(255,255,255,.05)}
+  .hud{position:fixed;left:24px;bottom:18px;color:#f3e6ee;font-size:14px;opacity:.85}
+  .hud b{color:#5fd6cf}
+  #toast{position:fixed;left:50%;top:70px;transform:translateX(-50%) scale(.95);
+    background:rgba(30,14,26,.85);color:#fff;padding:9px 18px;border-radius:20px;
+    font-size:15px;opacity:0;transition:.25s;pointer-events:none;white-space:nowrap}
+  #toast.show{opacity:1;transform:translateX(-50%) scale(1)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="title">Альтушка <span>—</span> грязнулька</div>
+<div class="badge" id="badge">загрузка…</div>
+<div class="hud">Потяни — повернуть · колесо — зум · <b>ткни по грязи</b>, чтобы стереть</div>
+<div id="toast"></div>
+
+<script src="three147.min.js"></script>
+<script src="GLTFLoader.js"></script>
+<script src="three-vrm.min.js"></script>
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const toastEl = document.getElementById('toast');
+  const badge = document.getElementById('badge');
+
+  if (location.protocol === 'file:') {
+    badge.textContent = 'нужен start.bat';
+    setTimeout(() => {
+      badge.textContent = 'открой через start.bat';
+    }, 100);
+  }
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.shadowMap.enabled = true;
+
+  const scene = new THREE.Scene();
+  const bg = document.createElement('canvas');
+  bg.width = 8; bg.height = 256;
+  const bx = bg.getContext('2d');
+  const grd = bx.createLinearGradient(0, 0, 0, 256);
+  grd.addColorStop(0, '#2b2332');
+  grd.addColorStop(.55, '#3b2c3e');
+  grd.addColorStop(1, '#1a141f');
+  bx.fillStyle = grd; bx.fillRect(0, 0, 8, 256);
+  const bgt = new THREE.CanvasTexture(bg);
+  bgt.encoding = THREE.sRGBEncoding;
+  scene.background = bgt;
+
+  const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, .01, 50);
+  camera.position.set(0, 1.42, 1.0);
+  camera.lookAt(0, 1.40, 0);
+
+  scene.add(new THREE.HemisphereLight(0xdfe7ff, 0x4a3540, 0.75));
+  const key = new THREE.DirectionalLight(0xfff1e6, 1.5);
+  key.position.set(1.4, 2.6, 2.2);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.camera.near = .5; key.shadow.camera.far = 8;
+  key.shadow.camera.left = -1.2; key.shadow.camera.right = 1.2;
+  key.shadow.camera.top = 2.4; key.shadow.camera.bottom = -.2;
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0x8ff0ed, .9);
+  rim.position.set(-1, 2, -2.2);
+  scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x9fc4ff, .5);
+  fill.position.set(-2, 1.2, 1.6);
+  scene.add(fill);
+
+  const doll = new THREE.Group();
+  scene.add(doll);
+
+  /* ---------- утилиты ---------- */
+  function rgb2hsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    let h = 0, s = 0;
+    const l = (mx + mn) / 2;
+    if (mx !== mn) {
+      const d = mx - mn;
+      s = l > .5 ? d / (2 - mx - mn) : d / (mx + mn);
+      if (mx === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (mx === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+    }
+    return [h, s, l];
+  }
+  function hsl2rgb(h, s, l) {
+    h = ((h % 360) + 360) % 360 / 360;
+    const q = l < .5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const f = t => {
+      t = (t + 1) % 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    return [Math.round(f(h + 1 / 3) * 255), Math.round(f(h) * 255), Math.round(f(h - 1 / 3) * 255)];
+  }
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toastEl.classList.remove('show'), 1600);
+  }
+  function materialMap(m) {
+    if (!m) return null;
+    if (m.map) return m.map;
+    if (m.uniforms && m.uniforms.map) return m.uniforms.map.value;
+    return null;
+  }
+  function setMaterialMap(m, tex) {
+    if (m.uniforms && m.uniforms.map) m.uniforms.map.value = tex;
+    else m.map = tex;
+    m.needsUpdate = true;
+  }
+
+  /* ---------- текстуры: волосы/одежда/грязь ---------- */
+  const tintCache = new Map();
+
+  function makeTinted(srcTex, mode) {
+    const key = srcTex.uuid + '|' + mode;
+    if (tintCache.has(key)) return tintCache.get(key);
+    const img = srcTex.image;
+    const c = document.createElement('canvas');
+    c.width = img.width * 2;
+    c.height = img.height * 2;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+
+    if (mode === 'hair') {
+      const d = ctx.getImageData(0, 0, c.width, c.height), px = d.data;
+      for (let i = 0; i < px.length; i += 4) {
+        const [h, s, l] = rgb2hsl(px[i], px[i + 1], px[i + 2]);
+        if (l < 0.045) continue;
+        const [nr, ng, nb] = hsl2rgb(174, Math.min(1, s + 0.32), Math.min(0.78, l * 1.02));
+        px[i] = nr; px[i + 1] = ng; px[i + 2] = nb;
+      }
+      ctx.putImageData(d, 0, 0);
+    } else {
+      // обесцвечиваем, чтобы не лезли жёлтые блики
+      const dd = ctx.getImageData(0, 0, c.width, c.height), pp = dd.data;
+      for (let i = 0; i < pp.length; i += 4) {
+        const g = pp[i] * 0.3 + pp[i + 1] * 0.59 + pp[i + 2] * 0.11;
+        pp[i] = pp[i] * 0.35 + g * 0.65;
+        pp[i + 1] = pp[i + 1] * 0.35 + g * 0.65;
+        pp[i + 2] = pp[i + 2] * 0.35 + g * 0.65;
+      }
+      ctx.putImageData(dd, 0, 0);
+
+      const base = mode === 'top' ? '#1b1920' : mode === 'skirt' ? '#38101e' : mode;
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = base;
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.globalCompositeOperation = 'source-over';
+
+      if (mode === 'top') {
+        const step = Math.max(16, Math.round(c.height / 24));
+        ctx.fillStyle = 'rgba(126,124,138,.28)';
+        for (let y = 0; y < c.height; y += step) {
+          ctx.fillRect(0, y, c.width, Math.max(4, Math.round(step * 0.36)));
+        }
+      } else if (mode === 'skirt') {
+        const cell = Math.max(48, Math.round(c.width / 7));
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(236,206,214,.26)';
+        for (let x = 0; x < c.width; x += cell) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, c.height); ctx.stroke();
+        }
+        for (let y = 0; y < c.height; y += cell) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(c.width, y); ctx.stroke();
+        }
+        ctx.lineWidth = 9;
+        ctx.strokeStyle = 'rgba(14,6,12,.45)';
+        for (let x = cell / 2; x < c.width; x += cell) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, c.height); ctx.stroke();
+        }
+        for (let y = cell / 2; y < c.height; y += cell) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(c.width, y); ctx.stroke();
+        }
+      }
+    }
+
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    t.flipY = srcTex.flipY;
+    t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    tintCache.set(key, t);
+    return t;
+  }
+
+  /* ---------- поза ---------- */
+  function aimBone(bone, endBone, target) {
+    const a = new THREE.Vector3(), b = new THREE.Vector3();
+    bone.getWorldPosition(a);
+    endBone.getWorldPosition(b);
+    const cur = b.sub(a).normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(cur, target.clone().normalize());
+    const P = new THREE.Quaternion();
+    bone.parent.getWorldQuaternion(P);
+    const delta = P.clone().invert().multiply(q).multiply(P);
+    bone.quaternion.premultiply(delta);
+    bone.updateMatrixWorld(true);
+  }
+
+  /* ---------- грязь ---------- */
+  function tattooTex() {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 128;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, 256, 128);
+    ctx.strokeStyle = 'rgba(22,14,20,.92)';
+    ctx.lineCap = 'round';
+
+    ctx.lineWidth = 5;
+    [[34, 110, 58, 26], [72, 112, 86, 20], [110, 116, 118, 14],
+     [150, 112, 146, 20], [190, 110, 178, 26]].forEach(([x1, y1, x2, y2]) => {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.quadraticCurveTo((x1 + x2) / 2 + 12, (y1 + y2) / 2, x2, y2);
+      ctx.stroke();
+    });
+
+    ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.moveTo(24, 64); ctx.lineTo(232, 64); ctx.stroke();
+
+    ctx.fillStyle = 'rgba(22,14,20,.9)';
+    for (let i = 0; i < 12; i++) {
+      ctx.beginPath();
+      ctx.arc(30 + i * 17, i % 2 ? 50 : 78, 2.4, 0, 7);
+      ctx.fill();
+    }
+
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+
+  function dirtTexture() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(64, 64, 6, 64, 64, 62);
+    g.addColorStop(0, 'rgba(64,42,24,.85)');
+    g.addColorStop(.45, 'rgba(78,54,32,.55)');
+    g.addColorStop(1, 'rgba(78,54,32,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 128, 128);
+    // крупинки
+    for (let i = 0; i < 26; i++) {
+      ctx.fillStyle = `rgba(40,26,14,${.2 + Math.random() * .4})`;
+      ctx.beginPath();
+      ctx.arc(30 + Math.random() * 68, 30 + Math.random() * 68, 1 + Math.random() * 3, 0, 7);
+      ctx.fill();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+
+  /* ---------- сборка ---------- */
+  let vrm = null, model = null;
+  const dirt = [];
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+
+  function faceBounds(root) {
+    const box = new THREE.Box3();
+    let found = false;
+    root.updateMatrixWorld(true);
+    root.traverse(o => {
+      if (!o.isMesh) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      if (!mats.some(m => m && m.name && m.name.indexOf('Face_00_SKIN') >= 0)) return;
+      const b = new THREE.Box3().setFromObject(o);
+      box.union(b);
+      found = true;
+    });
+    return found ? box : null;
+  }
+
+  function makeover(root) {
+    const h = vrm && vrm.humanoid;
+
+    // волосы в бирюзу, одежда в чёрный
+    root.traverse(o => {
+      if (!o.isMesh) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach(m => {
+        if (!m || !m.name) return;
+        const map = materialMap(m);
+        if (!map || !map.image) return;
+        if (m.name.indexOf('Hair_00_HAIR') >= 0 || m.name.indexOf('HairBack') >= 0) {
+          setMaterialMap(m, makeTinted(map, 'hair'));
+        } else if (m.name.indexOf('Tops_01_CLOTH') >= 0) {
+          setMaterialMap(m, makeTinted(map, 'top'));
+        } else if (m.name.indexOf('Bottoms_01_CLOTH') >= 0) {
+          setMaterialMap(m, makeTinted(map, 'skirt'));
+        } else if (m.name.indexOf('Shoes_01_CLOTH') >= 0) {
+          setMaterialMap(m, makeTinted(map, '#100d14'));
+        } else if (m.name.indexOf('Accessory_01_CLOTH') >= 0) {
+          setMaterialMap(m, makeTinted(map, '#241a2c'));
+        }
+      });
+    });
+
+    // поза: руки вниз
+    if (h) {
+      const lu = h.getBoneNode('leftUpperArm');
+      const lh = h.getBoneNode('leftHand');
+      const ru = h.getBoneNode('rightUpperArm');
+      const rh = h.getBoneNode('rightHand');
+      if (lu && lh) aimBone(lu, lh, new THREE.Vector3(0.30, -1, 0.06));
+      if (ru && rh) aimBone(ru, rh, new THREE.Vector3(-0.30, -1, 0.06));
+      const ll = h.getBoneNode('leftLowerArm');
+      const rl = h.getBoneNode('rightLowerArm');
+      if (ll) { ll.rotation.x += 0.10; }
+      if (rl) { rl.rotation.x += 0.10; }
+      root.updateMatrixWorld(true);
+    }
+
+    // габариты лица
+    const fb = faceBounds(root);
+    window.__dbg = fb ? {
+      min: fb.min.toArray().map(v => +v.toFixed(3)),
+      max: fb.max.toArray().map(v => +v.toFixed(3))
+    } : null;
+
+    if (fb) {
+      const ctr = fb.getCenter(new THREE.Vector3());
+      const size = fb.getSize(new THREE.Vector3());
+      window.__face = { ctr, size };
+    }
+
+    // убираем бант
+    root.traverse(o => {
+      if (!o.isMesh) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      if (mats.some(m => m && m.name && m.name.indexOf('Accessory_01_CLOTH') >= 0)) o.visible = false;
+    });
+
+    // цепь с крестом + тату + детали
+    if (h) {
+      const tops = [], bottoms = [];
+      root.traverse(o => {
+        if (!o.isMesh) return;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        mats.forEach(m => {
+          if (!m || !m.name) return;
+          if (m.name.indexOf('Tops_01_CLOTH') >= 0 && tops.indexOf(o) < 0) tops.push(o);
+          if (m.name.indexOf('Bottoms_01_CLOTH') >= 0 && bottoms.indexOf(o) < 0) bottoms.push(o);
+        });
+      });
+      const probe = new THREE.Raycaster();
+      const downZ = new THREE.Vector3(0, 0, -1);
+      const surf = (arr, x, y) => {
+        probe.set(new THREE.Vector3(x, y, 0.9), downZ);
+        const hits = probe.intersectObjects(arr, true);
+        return hits.length ? hits[0].point.z : null;
+      };
+
+      const chest = h.getBoneNode('upperChest') || h.getBoneNode('chest') || h.getBoneNode('spine');
+      if (chest && tops.length) {
+        const cp = new THREE.Vector3();
+        chest.getWorldPosition(cp);
+        const y0 = cp.y + 0.05, y1 = cp.y - 0.055;
+        const metal = new THREE.MeshStandardMaterial({ color: 0xcfd3da, metalness: .9, roughness: .3 });
+
+        let lastZ = null;
+        for (let i = 0; i <= 40; i++) {
+          const t = i / 40;
+          const x = (0.5 - t) * 0.115;
+          const y = y0 - (y0 - y1) * (1 - Math.abs(2 * t - 1));
+          let z = surf(tops, x, y);
+          if (z === null) z = lastZ;
+          if (z === null) continue;
+          lastZ = z;
+          const s = new THREE.Mesh(new THREE.SphereGeometry(0.0024, 6, 5), metal);
+          s.position.set(x, y, z + 0.0035);
+          doll.add(s);
+        }
+
+        // готический крест
+        const sh = new THREE.Shape();
+        sh.moveTo(-0.006, 0.027);
+        sh.lineTo(0.006, 0.027);
+        sh.lineTo(0.006, 0.008);
+        sh.lineTo(0.020, 0.006);
+        sh.lineTo(0.020, -0.002);
+        sh.lineTo(0.006, -0.004);
+        sh.lineTo(0.006, -0.027);
+        sh.lineTo(-0.006, -0.027);
+        sh.lineTo(-0.006, -0.004);
+        sh.lineTo(-0.020, -0.002);
+        sh.lineTo(-0.020, 0.006);
+        sh.lineTo(-0.006, 0.008);
+        sh.closePath();
+        const cg = new THREE.ExtrudeGeometry(sh, {
+          depth: 0.004, bevelEnabled: true, bevelSize: 0.0012,
+          bevelThickness: 0.0012, bevelSegments: 2
+        });
+        const cz = surf(tops, 0, y1 - 0.033);
+        const zc = (cz === null ? lastZ : cz);
+        if (zc !== null) {
+          const cross = new THREE.Mesh(cg, metal);
+          cross.position.set(0, y1 - 0.033, zc + 0.005);
+          doll.add(cross);
+
+          const bail = new THREE.Mesh(new THREE.TorusGeometry(0.005, 0.0014, 8, 16), metal);
+          bail.position.set(0, y1 - 0.004, zc + 0.004);
+          doll.add(bail);
+        }
+      }
+
+      // тату-ленты
+      const tt = tattooTex();
+      const ll = h.getBoneNode('leftLowerArm'), hand0 = h.getBoneNode('leftHand');
+      if (ll && hand0) {
+        const a = new THREE.Vector3(), b = new THREE.Vector3();
+        ll.getWorldPosition(a); hand0.getWorldPosition(b);
+        const mid = a.clone().lerp(b, 0.42);
+        const g = new THREE.CylinderGeometry(0.030, 0.030, 0.05, 24, 1, true);
+        const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+          map: tt, transparent: true, depthWrite: false, side: THREE.DoubleSide
+        }));
+        m.position.copy(mid);
+        m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+        doll.add(m);
+      }
+      const ul = h.getBoneNode('leftUpperLeg'), lw = h.getBoneNode('leftLowerLeg');
+      if (ul && lw) {
+        const a = new THREE.Vector3(), b = new THREE.Vector3();
+        ul.getWorldPosition(a); lw.getWorldPosition(b);
+        const mid = a.clone().lerp(b, 0.62);
+        const g = new THREE.CylinderGeometry(0.058, 0.058, 0.05, 24, 1, true);
+        const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+          map: tt, transparent: true, depthWrite: false, side: THREE.DoubleSide
+        }));
+        m.position.copy(mid);
+        m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+        doll.add(m);
+      }
+
+      // браслет
+      const hand = h.getBoneNode('leftHand');
+      if (hand && ll) {
+        const a = new THREE.Vector3(), b = new THREE.Vector3();
+        ll.getWorldPosition(a); hand.getWorldPosition(b);
+        const p = a.clone().lerp(b, 0.82);
+        const br = new THREE.Mesh(
+          new THREE.TorusGeometry(0.019, 0.0038, 8, 22),
+          new THREE.MeshStandardMaterial({ color: 0x2a2630, metalness: .6, roughness: .4 })
+        );
+        br.position.copy(p);
+        br.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), b.clone().sub(a).normalize());
+        doll.add(br);
+      }
+
+      // цепь на юбке
+      const chainMat = new THREE.MeshStandardMaterial({ color: 0xb9bdc8, metalness: .9, roughness: .35 });
+      const cpts = [
+        new THREE.Vector3(-0.115, 0.955, 0),
+        new THREE.Vector3(-0.140, 0.890, 0),
+        new THREE.Vector3(-0.125, 0.820, 0),
+        new THREE.Vector3(-0.095, 0.785, 0),
+      ];
+      const curve = new THREE.CatmullRomCurve3(cpts);
+      let prevZ = null;
+      for (let i = 0; i <= 18; i++) {
+        const p = curve.getPoint(i / 18);
+        let z = bottoms.length ? surf(bottoms, p.x, p.y) : null;
+        if (z === null) z = prevZ;
+        if (z === null) continue;
+        prevZ = z;
+        const s = new THREE.Mesh(new THREE.SphereGeometry(0.0026, 6, 5), chainMat);
+        s.position.set(p.x, p.y, z + 0.004);
+        doll.add(s);
+      }
+    }
+
+    badge.textContent = 'VRM · CC0-подобная лицензия';
+  }
+
+  /* ---------- загрузка ---------- */
+  const loader = new THREE.GLTFLoader();
+  loader.load('models/shino/Sendagaya%20Shino.vrm', gltf => {
+    THREE_VRM.VRM.from(gltf).then(v => {
+      vrm = v;
+      model = gltf.scene;
+
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const s = 1.62 / size.y;
+      model.scale.setScalar(s);
+      model.updateMatrixWorld(true);
+      const b2 = new THREE.Box3().setFromObject(model);
+      model.position.y -= b2.min.y;
+      model.position.x -= (b2.min.x + b2.max.x) / 2;
+      model.position.z -= (b2.min.z + b2.max.z) / 2;
+      model.rotation.y = Math.PI;
+
+      doll.add(model);
+      window.__model = model;
+      model.updateMatrixWorld(true);
+      makeover(model);
+      badge.textContent = 'VRM OK';
+    }).catch(err => {
+      badge.textContent = 'не загрузилась';
+      toast('Открой через start.bat — из файла 3D не грузится');
+      console.error(err);
+    });
+  }, undefined, err => {
+    badge.textContent = 'не загрузилась';
+    toast('Открой через start.bat — из файла 3D не грузится');
+    console.error(err);
+  });
+
+  /* ---------- клик по грязи ---------- */
+  canvas.addEventListener('pointerdown', e => {
+    const r = canvas.getBoundingClientRect();
+    pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    const hit = raycaster.intersectObjects(dirt.filter(d => d.material.opacity > 0.02));
+    if (!hit.length) return;
+    const p = hit[0].object;
+    let o = 1;
+    const fade = () => {
+      o -= 0.12;
+      p.material.opacity = Math.max(0, o);
+      if (o > 0) requestAnimationFrame(fade);
+      else {
+        p.visible = false;
+        burst(p.position.x, p.position.y, p.position.z);
+        if (dirt.every(d => !d.visible)) {
+          toast('Чистенькая ✨');
+          beep(880, .12, 1300);
+        }
+      }
+    };
+    fade();
+    beep(620, .09, 900);
+  });
+
+  function burst(x, y, z) {
+    for (let i = 0; i < 10; i++) {
+      const c = new THREE.Mesh(
+        new THREE.SphereGeometry(0.004, 6, 4),
+        new THREE.MeshBasicMaterial({ color: 0x6b4a2c })
+      );
+      c.position.set(x, y, z);
+      doll.add(c);
+      const a = Math.random() * Math.PI * 2, r = 0.02 + Math.random() * 0.03;
+      const dx = Math.cos(a) * r, dy = Math.sin(a) * r;
+      let t = 0;
+      const anim = () => {
+        t += 0.06;
+        c.position.x = x + dx * t;
+        c.position.y = y + dy * t - 0.02 * t * t;
+        c.material.opacity = 1;
+        c.scale.setScalar(1 - t * 0.7);
+        if (t < 1) requestAnimationFrame(anim);
+        else doll.remove(c);
+      };
+      anim();
+    }
+  }
+
+  /* ---------- звук ---------- */
+  let ac = null;
+  function beep(f, d, to) {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'triangle';
+      o.frequency.value = f;
+      o.frequency.exponentialRampToValueAtTime(to, ac.currentTime + d);
+      g.gain.value = .05;
+      g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + d);
+      o.connect(g).connect(ac.destination);
+      o.start(); o.stop(ac.currentTime + d);
+    } catch (e) {}
+  }
+
+  /* ---------- управление ---------- */
+  let yaw = 0, targetYaw = 0, dist = 1.05, pitch = 0, targetPitch = 0, drag = false, lx = 0, ly = 0;
+  canvas.addEventListener('pointerdown', e => { drag = true; lx = e.clientX; ly = e.clientY; });
+  canvas.addEventListener('pointermove', e => {
+    if (!drag) return;
+    targetYaw += (e.clientX - lx) * .008;
+    targetPitch = Math.max(-.3, Math.min(.3, targetPitch + (e.clientY - ly) * .004));
+    lx = e.clientX; ly = e.clientY;
+  });
+  canvas.addEventListener('pointerup', () => drag = false);
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    dist = Math.max(.5, Math.min(4, dist + e.deltaY * .0012));
+  }, { passive: false });
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  window.__setYaw = v => targetYaw = v;
+  window.__setDist = v => dist = v;
+  window.__camera = camera;
+
+  /* ---------- рендер ---------- */
+  const clock = new THREE.Clock();
+  function tick() {
+    requestAnimationFrame(tick);
+    const dt = clock.getDelta();
+    if (vrm) vrm.update(dt);
+    yaw += (targetYaw - yaw) * .08;
+    pitch += (targetPitch - pitch) * .08;
+    doll.rotation.y = yaw;
+    doll.position.y = Math.sin(clock.getElapsedTime() * 1.1) * 0.003;
+    camera.position.set(0, 1.34 + pitch * .25, dist);
+    camera.lookAt(0, 1.33 + pitch * .1, 0);
+    renderer.render(scene, camera);
+  }
+  tick();
+})();
+</script>
+</body>
+</html>

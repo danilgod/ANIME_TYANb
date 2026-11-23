@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>3D-кукла — Отмой грязнульку</title>
+<style>
+  html,body{margin:0;height:100%;background:#17131c;overflow:hidden;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+  #c{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  #c:active{cursor:grabbing}
+  .hud{position:fixed;left:24px;bottom:20px;color:#f3e6ee;pointer-events:none;
+    font-size:14px;letter-spacing:.2px;opacity:.75}
+  .title{position:fixed;left:24px;top:18px;color:#fff;font-weight:800;font-size:22px;
+    letter-spacing:.4px;text-shadow:0 2px 12px rgba(0,0,0,.45)}
+  .title span{color:#5fd6cf}
+  .badge{position:fixed;right:24px;top:20px;color:#cbbcc6;font-size:12px;
+    border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:6px 12px;
+    background:rgba(255,255,255,.05)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="title">3D-кукла <span>—</span> прототип</div>
+<div class="badge">three.js · WebGL</div>
+<div class="hud">Потяни мышкой, чтобы повернуть · колесо — приблизить</div>
+
+<script src="three.min.js"></script>
+<script>
+(() => {
+  THREE.ColorManagement.legacyMode = false;
+  const canvas = document.getElementById('c');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.75;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.01, 20);
+  const CAM_HOME = new THREE.Vector3(0, 1.50, 1.06);
+  camera.position.copy(CAM_HOME);
+  camera.lookAt(0, 1.50, 0);
+
+  /* ---------- фон-градиент ---------- */
+  function bgTexture() {
+    const c = document.createElement('canvas');
+    c.width = 8; c.height = 256;
+    const g = c.getContext('2d').createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0, '#2a2331');
+    g.addColorStop(.55, '#3a2b3c');
+    g.addColorStop(1, '#1a141f');
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 8, 256);
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+  scene.background = bgTexture();
+
+  /* ---------- свет ---------- */
+  const hemi = new THREE.HemisphereLight(0xdfe7ff, 0x4a3540, 0.38);
+  scene.add(hemi);
+
+  const key = new THREE.DirectionalLight(0xfff1e6, 0.85);
+  key.position.set(1.6, 2.6, 2.2);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.camera.near = 0.5;
+  key.shadow.camera.far = 8;
+  key.shadow.camera.left = -1.2;
+  key.shadow.camera.right = 1.2;
+  key.shadow.camera.top = 2.6;
+  key.shadow.camera.bottom = -0.2;
+  key.shadow.bias = -0.0015;
+  scene.add(key);
+
+  const fill = new THREE.DirectionalLight(0x9fc4ff, 0.3);
+  fill.position.set(-2.0, 1.4, 1.6);
+  scene.add(fill);
+
+  const rim = new THREE.DirectionalLight(0x8ff0ed, 0.45);
+  rim.position.set(-0.6, 2.0, -2.2);
+  scene.add(rim);
+
+  /* ---------- материалы ---------- */
+  const M = {
+    skin:  new THREE.MeshStandardMaterial({ color: 0xf6ddd6, roughness: .58, metalness: .0 }),
+    hair:  new THREE.MeshStandardMaterial({ color: 0x1d6e6a, roughness: .62, metalness: .0 }),
+    hairD: new THREE.MeshStandardMaterial({ color: 0x135452, roughness: .65, metalness: .0 }),
+    eyeW:  new THREE.MeshStandardMaterial({ color: 0xfff9f5, roughness: .22 }),
+    iris:  new THREE.MeshStandardMaterial({ color: 0x191016, roughness: .18 }),
+    lash:  new THREE.MeshStandardMaterial({ color: 0x120c11, roughness: .5 }),
+    lips:  new THREE.MeshStandardMaterial({ color: 0xb8756c, roughness: .28 }),
+    metal: new THREE.MeshStandardMaterial({ color: 0xd8dce4, roughness: .25, metalness: .95 }),
+    choke: new THREE.MeshStandardMaterial({ color: 0x5c5b64, roughness: .62 }),
+    dark:  new THREE.MeshStandardMaterial({ color: 0x1b1720, roughness: .7 }),
+  };
+
+  const doll = new THREE.Group();
+  scene.add(doll);
+
+  /* ---------- геометрия-лофт ---------- */
+  function loft(profile, seg = 64, offset = 0) {
+    const pos = [], uv = [], idx = [];
+    const n = profile.length;
+    for (let i = 0; i < n; i++) {
+      const p = profile[i];
+      for (let j = 0; j <= seg; j++) {
+        const a = j / seg * Math.PI * 2;
+        pos.push(Math.cos(a) * (p.rx + offset), p.y, Math.sin(a) * (p.rz + offset) + (p.dz || 0));
+        uv.push(j / seg, i / (n - 1));
+      }
+    }
+    for (let i = 0; i < n - 1; i++) {
+      for (let j = 0; j < seg; j++) {
+        const a = i * (seg + 1) + j, b = a + 1, c = a + seg + 1, d = c + 1;
+        idx.push(a, c, b, b, c, d);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    return g;
+  }
+
+  /* ---------- торс ---------- */
+  const bodyProfile = [
+    { y: 0.88, rx: 0.150, rz: 0.100 },
+    { y: 0.96, rx: 0.146, rz: 0.100 },
+    { y: 1.05, rx: 0.126, rz: 0.090 },
+    { y: 1.11, rx: 0.120, rz: 0.086 },
+    { y: 1.19, rx: 0.128, rz: 0.096 },
+    { y: 1.26, rx: 0.146, rz: 0.112 },
+    { y: 1.32, rx: 0.155, rz: 0.112 },
+    { y: 1.38, rx: 0.150, rz: 0.098 },
+    { y: 1.43, rx: 0.126, rz: 0.088 },
+    { y: 1.462, rx: 0.092, rz: 0.072 },
+    { y: 1.482, rx: 0.068, rz: 0.058 },
+  ];
+  const body = new THREE.Mesh(loft(bodyProfile, 64), M.skin);
+  body.castShadow = body.receiveShadow = true;
+  doll.add(body);
+
+  /* ---------- шея и голова ---------- */
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.058, 0.10, 32), M.skin);
+  neck.position.set(0, 1.485, 0);
+  neck.castShadow = neck.receiveShadow = true;
+  doll.add(neck);
+
+  const headGeo = new THREE.SphereGeometry(0.105, 64, 48);
+  {
+    const p = headGeo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const t = Math.max(0, -y / 0.105);
+      const narrow = 1 - 0.30 * Math.pow(t, 1.3);
+      x *= narrow;
+      z *= narrow * (z > 0 ? 1 : 1.02);
+      z += 0.012 * Math.pow(t, 2.2);
+      p.setXYZ(i, x, y, z);
+    }
+    headGeo.computeVertexNormals();
+  }
+  const head = new THREE.Mesh(headGeo, M.skin);
+  head.position.set(0, 1.618, 0);
+  head.scale.set(1.0, 1.06, 0.97);
+  head.castShadow = head.receiveShadow = true;
+  doll.add(head);
+
+  /* ---------- лицо (текстура) ---------- */
+  function faceTexture() {
+    const W = 1024, H = 512;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+
+    ctx.fillStyle = '#f6ddd6';
+    ctx.fillRect(0, 0, W, H);
+
+    // румяна
+    [[186, 300], [326, 300]].forEach(([x, y]) => {
+      const g = ctx.createRadialGradient(x, y, 4, x, y, 54);
+      g.addColorStop(0, 'rgba(236,126,158,.3)');
+      g.addColorStop(1, 'rgba(236,126,158,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, 54, 0, Math.PI * 2); ctx.fill();
+    });
+
+    function eye(cx, mirror) {
+      const cy = 234;
+      ctx.save();
+      ctx.translate(cx, cy);
+      if (mirror) ctx.scale(-1, 1);
+      ctx.lineCap = 'round';
+
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 37, 26, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#fffaf6';
+      ctx.fill();
+
+      const ir = ctx.createRadialGradient(0, 1, 2, 0, 1, 23);
+      ir.addColorStop(0, '#33232c');
+      ir.addColorStop(.65, '#170f15');
+      ir.addColorStop(1, '#0a0609');
+      ctx.beginPath(); ctx.arc(0, 1, 23, 0, Math.PI * 2);
+      ctx.fillStyle = ir; ctx.fill();
+
+      ctx.beginPath(); ctx.arc(9, -9, 5.5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+      ctx.beginPath(); ctx.arc(-11, 9, 2.8, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fill();
+
+      ctx.beginPath();
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = '#120c11';
+      ctx.moveTo(-40, -3);
+      ctx.quadraticCurveTo(-4, -36, 34, -9);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.lineWidth = 6;
+      ctx.moveTo(28, -12);
+      ctx.quadraticCurveTo(50, -20, 60, -30);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(18,12,17,.55)';
+      ctx.moveTo(-34, 11);
+      ctx.quadraticCurveTo(0, 30, 34, 5);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#120c11';
+      ctx.lineWidth = 2.6;
+      [-30, -15, 0, 15, 30].forEach(x => {
+        const yy = -16 - Math.cos(x / 40 * 1.3) * 5;
+        ctx.beginPath();
+        ctx.moveTo(x, yy);
+        ctx.lineTo(x + (x < 0 ? -4 : 4), yy - 8);
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+    eye(186, true);
+    eye(326, false);
+
+    // брови
+    ctx.strokeStyle = '#2c1b23';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    [[186, 166, -1], [326, 166, 1]].forEach(([cx, cy, s]) => {
+      ctx.beginPath();
+      ctx.moveTo(cx - 40 * s, cy + 9);
+      ctx.quadraticCurveTo(cx, cy - 10, cx + 38 * s, cy + 3);
+      ctx.stroke();
+    });
+
+    // нос
+    ctx.strokeStyle = 'rgba(198,150,136,.7)';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(250, 288);
+    ctx.quadraticCurveTo(260, 302, 248, 306);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(263, 305, 2.6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(226,182,170,.85)'; ctx.fill();
+
+    // губы
+    ctx.beginPath();
+    ctx.moveTo(210, 342);
+    ctx.quadraticCurveTo(234, 324, 256, 338);
+    ctx.quadraticCurveTo(278, 324, 302, 342);
+    ctx.quadraticCurveTo(278, 372, 256, 372);
+    ctx.quadraticCurveTo(234, 372, 210, 342);
+    ctx.closePath();
+    const lg = ctx.createLinearGradient(0, 324, 0, 372);
+    lg.addColorStop(0, '#cf958b');
+    lg.addColorStop(.45, '#b9746e');
+    lg.addColorStop(1, '#a8625f');
+    ctx.fillStyle = lg;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(92,42,46,.5)';
+    ctx.lineWidth = 2.5;
+    ctx.moveTo(212, 342);
+    ctx.quadraticCurveTo(256, 351, 300, 342);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(255,255,255,.25)';
+    ctx.ellipse(240, 352, 11, 3.4, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+  head.material = new THREE.MeshStandardMaterial({ map: faceTexture(), roughness: .6 });
+
+  // пирсинги (снейк байтс)
+  [-1, 1].forEach(s => {
+    const p = new THREE.Mesh(new THREE.SphereGeometry(0.0048, 12, 10), M.metal);
+    p.position.set(0.026 * s, 1.534, 0.050);
+    doll.add(p);
+    const p2 = new THREE.Mesh(new THREE.SphereGeometry(0.0034, 12, 10), M.metal);
+    p2.position.set(0.021 * s, 1.523, 0.046);
+    doll.add(p2);
+  });
+
+  /* ---------- волосы ---------- */
+  const hair = new THREE.Group();
+  doll.add(hair);
+
+  // шапочка: своя геометрия, край спереди выше, сзади ниже
+  function hairCap() {
+    const seg = 96, rings = 28;
+    const cy = 1.618, R = 0.116;
+    const pos = [], uv = [], idx = [];
+    const thetaMax = phi => {
+      const front = Math.max(0, Math.sin(phi));
+      const back = Math.max(0, -Math.sin(phi));
+      return 1.60 + back * 0.58 - front * 0.60;
+    };
+    for (let i = 0; i <= rings; i++) {
+      const t = i / rings;
+      for (let j = 0; j <= seg; j++) {
+        const phi = j / seg * Math.PI * 2;
+        const th = thetaMax(phi) * t;
+        const sx = Math.sin(th) * Math.cos(phi);
+        const sy = Math.cos(th);
+        const sz = Math.sin(th) * Math.sin(phi);
+        pos.push(sx * R, cy + sy * R * 1.07, sz * R);
+        uv.push(j / seg, t);
+      }
+    }
+    for (let i = 0; i < rings; i++) {
+      for (let j = 0; j < seg; j++) {
+        const a = i * (seg + 1) + j, b = a + 1, c = a + seg + 1, d = c + 1;
+        idx.push(a, b, c, b, d, c);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    return g;
+  }
+  const cap = new THREE.Mesh(hairCap(), M.hair);
+  cap.castShadow = true;
+  hair.add(cap);
+
+  // лента-прядь по точкам
+  function strand(points, w0, w1, mat, seg = 24) {
+    const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(p[0], p[1], p[2])));
+    const pos = [], idx = [];
+    for (let i = 0; i <= seg; i++) {
+      const t = i / seg;
+      const p = curve.getPoint(t);
+      const tan = curve.getTangent(t);
+      const side = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      const w = w0 + (w1 - w0) * t;
+      pos.push(p.x - side.x * w, p.y, p.z - side.z * w);
+      pos.push(p.x + side.x * w, p.y, p.z + side.z * w);
+    }
+    for (let i = 0; i < seg; i++) {
+      const a = i * 2;
+      idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, mat);
+    m.material.side = THREE.DoubleSide;
+    m.castShadow = true;
+    return m;
+  }
+
+  // затылок — масса волос
+  const backMass = new THREE.Mesh(loft([
+    { y: 1.06, rx: 0.140, rz: 0.075, dz: -0.075 },
+    { y: 1.20, rx: 0.152, rz: 0.085, dz: -0.065 },
+    { y: 1.36, rx: 0.150, rz: 0.085, dz: -0.058 },
+    { y: 1.48, rx: 0.130, rz: 0.080, dz: -0.055 },
+    { y: 1.58, rx: 0.112, rz: 0.080, dz: -0.045 },
+  ], 48), M.hairD);
+  backMass.castShadow = true;
+  hair.add(backMass);
+
+  // длинные пряди по бокам и сзади
+  const longStrands = [
+    [[-0.095, 1.662, 0.032], [-0.126, 1.48, 0.062], [-0.134, 1.30, 0.070], [-0.126, 1.12, 0.055]],
+    [[0.095, 1.662, 0.032], [0.126, 1.48, 0.062], [0.134, 1.30, 0.070], [0.126, 1.12, 0.055]],
+    [[-0.075, 1.68, -0.055], [-0.100, 1.45, -0.085], [-0.105, 1.20, -0.090], [-0.095, 1.02, -0.075]],
+    [[0.075, 1.68, -0.055], [0.100, 1.45, -0.085], [0.105, 1.20, -0.090], [0.095, 1.02, -0.075]],
+  ];
+  longStrands.forEach((pts, i) => {
+    hair.add(strand(pts, 0.026, 0.018, i % 2 ? M.hair : M.hairD, 28));
+  });
+
+  // чёлка
+  const bangs = [
+    [[-0.090, 1.690, 0.058], [-0.092, 1.672, 0.082], [-0.096, 1.652, 0.092]],
+    [[-0.066, 1.694, 0.066], [-0.066, 1.674, 0.092], [-0.070, 1.650, 0.100]],
+    [[-0.040, 1.697, 0.070], [-0.038, 1.676, 0.097], [-0.042, 1.646, 0.104]],
+    [[-0.014, 1.698, 0.072], [-0.011, 1.676, 0.099], [-0.014, 1.642, 0.106]],
+    [[0.012, 1.698, 0.072], [0.016, 1.676, 0.098], [0.013, 1.645, 0.105]],
+    [[0.038, 1.697, 0.070], [0.042, 1.674, 0.096], [0.039, 1.650, 0.103]],
+    [[0.064, 1.694, 0.066], [0.068, 1.672, 0.091], [0.065, 1.654, 0.099]],
+    [[0.088, 1.690, 0.058], [0.094, 1.670, 0.082], [0.092, 1.658, 0.090]],
+  ];
+  function faceZ(x, y) {
+    const dx = x;
+    const dy = (y - 1.618) / 1.06;
+    const r2 = 0.105 * 0.105 - dx * dx - dy * dy;
+    return Math.max(0.045, Math.sqrt(Math.max(0, r2)) * 0.97 + 0.014);
+  }
+  bangs.forEach((pts, i) => {
+    const p2 = pts.map(([x, y]) => [x, y, faceZ(x, y)]);
+    hair.add(strand(p2, 0.017, 0.013, i % 2 ? M.hairD : M.hair, 10));
+  });
+  // пряди, обрамляющие лицо
+  [[-1], [1]].forEach(([s]) => {
+    hair.add(strand([
+      [0.085 * s, 1.700, 0.070],
+      [0.100 * s, 1.640, 0.082],
+      [0.096 * s, 1.560, 0.088],
+      [0.086 * s, 1.500, 0.080],
+    ], 0.020, 0.012, M.hair, 14));
+  });
+
+  /* ---------- одежда ---------- */
+  const clothes = new THREE.Group();
+  doll.add(clothes);
+
+  function stripeTex(vertical) {
+    const c = document.createElement('canvas');
+    c.width = 64; c.height = 64;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#1b1b21'; ctx.fillRect(0, 0, 64, 64);
+    ctx.fillStyle = '#565660';
+    if (vertical) { for (let i = 0; i < 64; i += 16) ctx.fillRect(i, 0, 8, 64); }
+    else { for (let i = 0; i < 64; i += 16) ctx.fillRect(0, i, 64, 8); }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+  const texBody = stripeTex(false);
+  texBody.repeat.set(1, 4);
+  const texArm = stripeTex(true);
+  texArm.repeat.set(4, 1);
+
+  const clothMat = new THREE.MeshStandardMaterial({
+    map: texBody, roughness: .82, metalness: .02, side: THREE.DoubleSide
+  });
+  const sleeveMat = new THREE.MeshStandardMaterial({
+    map: texArm, roughness: .82, metalness: .02, side: THREE.DoubleSide
+  });
+
+  // корпус топа — лофт с вырезом спереди
+  function topMesh() {
+    const seg = 64;
+    const profile = [
+      { y: 1.085, rx: 0.135, rz: 0.098 },
+      { y: 1.16,  rx: 0.138, rz: 0.102 },
+      { y: 1.26,  rx: 0.157, rz: 0.122 },
+      { y: 1.33,  rx: 0.166, rz: 0.122 },
+      { y: 1.40,  rx: 0.152, rz: 0.106 },
+    ];
+    const pos = [], uv = [], idx = [];
+    const n = profile.length;
+    for (let i = 0; i < n; i++) {
+      const p = profile[i];
+      for (let j = 0; j <= seg; j++) {
+        const a = j / seg * Math.PI * 2;
+        let y = p.y;
+        if (i === n - 1) {
+          const front = Math.max(0, Math.sin(a));
+          y -= 0.042 * Math.pow(front, 1.6);
+        }
+        pos.push(Math.cos(a) * p.rx, y, Math.sin(a) * p.rz);
+        uv.push(j / seg, i / (n - 1));
+      }
+    }
+    for (let i = 0; i < n - 1; i++) {
+      for (let j = 0; j < seg; j++) {
+        const a = i * (seg + 1) + j, b = a + 1, c = a + seg + 1, d = c + 1;
+        idx.push(a, c, b, b, c, d);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    return g;
+  }
+  const top = new THREE.Mesh(topMesh(), clothMat);
+  top.castShadow = top.receiveShadow = true;
+  clothes.add(top);
+
+  // рукава
+  function sleeve(side) {
+    const pts = [
+      new THREE.Vector3(0.132 * side, 1.400, 0),
+      new THREE.Vector3(0.176 * side, 1.290, 0.010),
+      new THREE.Vector3(0.197 * side, 1.160, 0.012),
+      new THREE.Vector3(0.208 * side, 1.030, 0.004),
+      new THREE.Vector3(0.212 * side, 0.940, -0.006),
+    ];
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const g = new THREE.TubeGeometry(curve, 40, 0.044, 20, false);
+    const m = new THREE.Mesh(g, sleeveMat);
+    m.castShadow = m.receiveShadow = true;
+    return m;
+  }
+  clothes.add(sleeve(-1), sleeve(1));
+
+  // руки — кожа
+  function arm(side) {
+    const pts = [
+      new THREE.Vector3(0.150 * side, 1.385, 0),
+      new THREE.Vector3(0.176 * side, 1.290, 0.010),
+      new THREE.Vector3(0.195 * side, 1.160, 0.012),
+      new THREE.Vector3(0.206 * side, 1.030, 0.004),
+      new THREE.Vector3(0.210 * side, 0.930, -0.006),
+    ];
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const g = new THREE.TubeGeometry(curve, 40, 0.032, 16, false);
+    const m = new THREE.Mesh(g, M.skin);
+    m.castShadow = true;
+    return m;
+  }
+  doll.add(arm(-1), arm(1));
+
+  // кисти
+  [-1, 1].forEach(s => {
+    const h = new THREE.Mesh(new THREE.SphereGeometry(0.036, 20, 16), M.skin);
+    h.scale.set(0.72, 1.15, 0.55);
+    h.position.set(0.212 * s, 0.895, -0.008);
+    h.castShadow = true;
+    doll.add(h);
+  });
+
+  // ноги (для отдаления)
+  [-1, 1].forEach(s => {
+    const pts = [
+      new THREE.Vector3(0.075 * s, 0.90, 0),
+      new THREE.Vector3(0.080 * s, 0.62, 0.005),
+      new THREE.Vector3(0.078 * s, 0.36, 0.004),
+      new THREE.Vector3(0.076 * s, 0.10, 0.01),
+    ];
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const g = new THREE.TubeGeometry(curve, 20, 0.058, 14, false);
+    const m = new THREE.Mesh(g, M.skin);
+    m.castShadow = true;
+    doll.add(m);
+  });
+  // шорты
+  const shorts = new THREE.Mesh(loft([
+    { y: 0.84, rx: 0.145, rz: 0.098 },
+    { y: 0.90, rx: 0.155, rz: 0.104 },
+    { y: 0.98, rx: 0.150, rz: 0.102 },
+  ], 48), M.dark);
+  shorts.castShadow = true;
+  doll.add(shorts);
+
+  /* ---------- аксессуары ---------- */
+  // чокер
+  const choker = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.0062, 14, 40), M.choke);
+  choker.rotation.x = Math.PI / 2;
+  choker.position.set(0, 1.510, 0.002);
+  choker.castShadow = true;
+  doll.add(choker);
+
+  // цепь с крестом
+  const chainPts = [];
+  for (let i = 0; i <= 20; i++) {
+    const a = -Math.PI * 0.42 + (i / 20) * Math.PI * 0.84;
+    chainPts.push(new THREE.Vector3(Math.sin(a) * 0.075, 1.475 - Math.cos(a) * 0.075, 0.075 + Math.cos(a) * 0.025));
+  }
+  const chainCurve = new THREE.CatmullRomCurve3(chainPts);
+  const chain = new THREE.Mesh(new THREE.TubeGeometry(chainCurve, 30, 0.0022, 6, false), M.metal);
+  doll.add(chain);
+
+  const cross = new THREE.Group();
+  const cv = new THREE.Mesh(new THREE.BoxGeometry(0.011, 0.042, 0.006), M.metal);
+  const ch = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.010, 0.006), M.metal);
+  ch.position.y = 0.008;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.006, 0.0018, 8, 16), M.metal);
+  ring.position.y = 0.024;
+  cross.add(cv, ch, ring);
+  cross.position.set(0, 1.352, 0.112);
+  cross.rotation.x = -0.16;
+  doll.add(cross);
+
+  // тату на груди (плоская декаль)
+  function tattooTexture() {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, 256, 256);
+    ctx.strokeStyle = 'rgba(24,16,24,.85)';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    const spikes = [
+      [70, 200, 100, 120], [110, 205, 120, 100], [150, 200, 140, 100], [190, 196, 160, 120],
+      [128, 120, 128, 40], [96, 160, 40, 120], [160, 160, 216, 120],
+    ];
+    spikes.forEach(([x1, y1, x2, y2]) => {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.quadraticCurveTo((x1 + x2) / 2 + 8, (y1 + y2) / 2, x2, y2);
+      ctx.stroke();
+    });
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(128, 60); ctx.lineTo(128, 200);
+    ctx.moveTo(100, 100); ctx.lineTo(156, 100);
+    ctx.stroke();
+    const t = new THREE.CanvasTexture(c);
+    t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+  const tattoo = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.078, 0.078),
+    new THREE.MeshBasicMaterial({ map: tattooTexture(), transparent: true, depthWrite: false })
+  );
+  tattoo.position.set(0, 1.372, 0.104);
+  tattoo.rotation.x = -0.14;
+  doll.add(tattoo);
+
+  /* ---------- управление ---------- */
+  let yaw = 0, targetYaw = 0, dist = 1.06;
+  let dragging = false, lastX = 0, lastY = 0, pitch = 0, targetPitch = 0;
+
+  canvas.addEventListener('pointerdown', e => {
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    targetYaw += (e.clientX - lastX) * 0.008;
+    targetPitch = Math.max(-0.35, Math.min(0.35, targetPitch + (e.clientY - lastY) * 0.004));
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  canvas.addEventListener('pointerup', () => { dragging = false; });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    dist = Math.max(0.4, Math.min(1.9, dist + e.deltaY * 0.0008));
+  }, { passive: false });
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  /* ---------- рендер ---------- */
+  window.__setYaw = v => { targetYaw = v; };
+  window.__setDist = v => { dist = v; };
+
+  const clock = new THREE.Clock();
+  function animate() {
+    requestAnimationFrame(animate);
+    const t = clock.getElapsedTime();
+
+    yaw += (targetYaw - yaw) * 0.08;
+    pitch += (targetPitch - pitch) * 0.08;
+    doll.rotation.y = yaw;
+    doll.position.y = Math.sin(t * 1.1) * 0.004;
+    doll.rotation.x = pitch * 0.25;
+
+    camera.position.set(0, 1.50 + pitch * 0.12, dist);
+    camera.lookAt(0, 1.50 + pitch * 0.05, 0);
+
+    renderer.render(scene, camera);
+  }
+  animate();
+})();
+</script>
+</body>
+</html>

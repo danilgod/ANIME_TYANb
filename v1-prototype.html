@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Отмой грязнульку</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#120d14;overflow:hidden;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+  body{display:grid;place-items:center}
+  #stage{
+    width:min(100vw, 75vh);
+    height:auto;
+    display:block;
+    touch-action:manipulation;
+    user-select:none;-webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #girlInner{animation:bob 3.6s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+
+  .dirt{transition:opacity .3s ease;pointer-events:none}
+
+  .hit{fill:rgba(255,255,255,0);stroke:rgba(255,255,255,0);cursor:pointer;
+       transition:fill .15s ease,stroke .15s ease}
+  .hit:hover{fill:rgba(255,255,255,.10)}
+  .hit.err{fill:rgba(255,60,90,.25);stroke:#ff3c5a;stroke-width:5;stroke-dasharray:10 8}
+
+  .tool{cursor:pointer}
+  .tool .inner{transition:transform .2s ease}
+  .tool .slotbg{fill:rgba(255,255,255,.05);stroke:rgba(255,255,255,.14);stroke-width:2;
+                transition:fill .2s,stroke .2s}
+  .tool:hover .slotbg{fill:rgba(255,255,255,.10)}
+  .tool.sel .slotbg{fill:rgba(255,207,92,.14);stroke:#ffcf5c;stroke-width:4}
+  .tool.sel .inner{transform:translateY(-8px) scale(1.06)}
+
+  #toast{opacity:0;transition:opacity .25s ease}
+  #toast.show{opacity:1}
+
+  #win{opacity:0;pointer-events:none;transition:opacity .4s ease}
+  #win.show{opacity:1;pointer-events:auto}
+  #win .card{transform-box:fill-box;transform-origin:center;transform:scale(.85);
+             transition:transform .4s cubic-bezier(.2,1.4,.5,1)}
+  #win.show .card{transform:scale(1)}
+
+  /* состояние "чисто" */
+  .clean .blush{opacity:.55}
+  .clean .lips{fill:#e08fa2}
+  .clean .happyEyes{opacity:1}
+  .clean .baseEyes{opacity:0}
+  .clean .aura{opacity:1}
+  .aura{opacity:0;transition:opacity .8s ease}
+</style>
+</head>
+<body>
+<svg id="stage" viewBox="0 0 900 1200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Игра: отмой грязнульку">
+<defs>
+  <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ecc9da"/>
+    <stop offset=".55" stop-color="#dcaac6"/>
+    <stop offset="1" stop-color="#c48fb2"/>
+  </linearGradient>
+  <radialGradient id="vig" cx=".5" cy=".42" r=".78">
+    <stop offset=".5" stop-color="#000" stop-opacity="0"/>
+    <stop offset="1" stop-color="#2a0f22" stop-opacity=".5"/>
+  </radialGradient>
+  <linearGradient id="gradPink" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#ff8fbb"/>
+    <stop offset="1" stop-color="#ffd166"/>
+  </linearGradient>
+  <linearGradient id="shelfGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#3d2b36"/>
+    <stop offset="1" stop-color="#22171f"/>
+  </linearGradient>
+  <radialGradient id="auraGrad">
+    <stop offset="0" stop-color="#fff" stop-opacity=".55"/>
+    <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </radialGradient>
+
+  <pattern id="plaid" width="44" height="44" patternUnits="userSpaceOnUse">
+    <rect width="44" height="44" fill="#5c1626"/>
+    <rect width="44" height="14" fill="#7e2036"/>
+    <rect width="14" height="44" fill="#7e2036"/>
+    <path d="M22 0V44M0 22H44" stroke="#1b1016" stroke-width="3" opacity=".55"/>
+    <path d="M8 0V44M36 0V44M0 8H44M0 36H44" stroke="#c9a3ad" stroke-width="1" opacity=".28"/>
+  </pattern>
+
+  <pattern id="net" width="15" height="15" patternUnits="userSpaceOnUse" patternTransform="rotate(38)">
+    <path d="M0 0V15M0 0H15" stroke="#161218" stroke-width="2.6" fill="none"/>
+  </pattern>
+
+  <filter id="soft" x="-70%" y="-70%" width="240%" height="240%">
+    <feGaussianBlur stdDeviation="6"/>
+  </filter>
+</defs>
+
+<!-- фон -->
+<g id="bg">
+  <rect width="900" height="1200" fill="url(#wall)"/>
+  <g opacity=".22" stroke="#fff" stroke-width="1.6">
+    <path d="M0 120H900M0 240H900M0 360H900M0 480H900M0 600H900M0 720H900M0 840H900M0 960H900"/>
+    <path d="M100 0V960M200 0V960M300 0V960M400 0V960M500 0V960M600 0V960M700 0V960M800 0V960"/>
+  </g>
+  <rect width="900" height="1200" fill="url(#vig)"/>
+</g>
+
+<!-- персонаж -->
+<g id="girl">
+  <g id="girlInner">
+    <ellipse class="aura" cx="450" cy="540" rx="300" ry="400" fill="url(#auraGrad)"/>
+
+    <!-- волосы: задний объём -->
+    <g fill="#241c2b">
+      <ellipse cx="450" cy="292" rx="120" ry="146"/>
+      <rect x="330" y="250" width="46" height="310" rx="23"/>
+      <rect x="524" y="250" width="46" height="310" rx="23"/>
+    </g>
+    <g opacity=".5">
+      <rect x="338" y="270" width="11" height="250" rx="5" fill="#7d5cff"/>
+      <rect x="552" y="280" width="10" height="220" rx="5" fill="#5fd08a"/>
+    </g>
+    <!-- уши -->
+
+    <!-- ноги в сетке -->
+    <rect x="392" y="760" width="52" height="268" rx="26" fill="#f0cdba"/>
+    <rect x="456" y="760" width="52" height="268" rx="26" fill="#eecbb9"/>
+    <rect x="392" y="760" width="52" height="268" rx="26" fill="url(#net)" opacity=".92"/>
+    <rect x="456" y="760" width="52" height="268" rx="26" fill="url(#net)" opacity=".92"/>
+
+    <!-- юбка -->
+    <path d="M368 600 L336 790 Q450 838 564 790 L532 600 Q450 636 368 600 Z"
+          fill="url(#plaid)" stroke="#2a1219" stroke-width="3"/>
+    <rect x="360" y="594" width="180" height="18" rx="9" fill="#191320"/>
+    <circle cx="450" cy="603" r="8" fill="#d9c07a" stroke="#8a7038" stroke-width="2"/>
+
+    <!-- футболка -->
+    <path d="M356 434 Q450 402 544 434 L538 606 Q450 642 362 606 Z" fill="#1c1822"/>
+    <path d="M356 434 q-18 10 -20 36 l 30 8 z" fill="#1c1822"/>
+    <path d="M544 434 q18 10 20 36 l -30 8 z" fill="#1c1822"/>
+    <!-- принт: череп -->
+    <g>
+      <ellipse cx="450" cy="512" rx="38" ry="36" fill="#f3ece2"/>
+      <path d="M420 538 h60 v14 q-30 14 -60 0 z" fill="#f3ece2"/>
+      <ellipse cx="437" cy="506" rx="8" ry="10" fill="#1c1822"/>
+      <ellipse cx="463" cy="506" rx="8" ry="10" fill="#1c1822"/>
+      <path d="M450 518 l-7 14 h14 z" fill="#1c1822" opacity=".85"/>
+      <path d="M433 548 v11 M443 548 v13 M457 548 v13 M467 548 v11"
+            stroke="#1c1822" stroke-width="3" stroke-linecap="round"/>
+    </g>
+
+    <!-- шея и ошейник -->
+    <rect x="422" y="366" width="56" height="64" rx="20" fill="#e3b7a2"/>
+    <rect x="418" y="400" width="64" height="16" rx="7" fill="#171320"/>
+    <path d="M426 416 l6 11 6 -11z M444 416 l6 11 6 -11z M462 416 l6 11 6 -11z" fill="#c8ccd6"/>
+
+    <!-- руки -->
+    <path d="M366 452 L306 672" stroke="#f0cdba" stroke-width="34" stroke-linecap="round"/>
+    <path d="M534 452 L594 672" stroke="#eecbb9" stroke-width="34" stroke-linecap="round"/>
+    <g fill="#191320">
+      <ellipse cx="318" cy="626" rx="21" ry="8" transform="rotate(15 318 626)"/>
+      <ellipse cx="330" cy="633" rx="21" ry="8" transform="rotate(15 330 633)"/>
+      <ellipse cx="582" cy="626" rx="21" ry="8" transform="rotate(-15 582 626)"/>
+      <ellipse cx="570" cy="633" rx="21" ry="8" transform="rotate(-15 570 633)"/>
+    </g>
+    <circle cx="302" cy="684" r="24" fill="#f0cdba"/>
+    <circle cx="598" cy="684" r="24" fill="#eecbb9"/>
+
+    <!-- лицо -->
+    <ellipse cx="450" cy="308" rx="77" ry="92" fill="#f2d3c2"/>
+
+    <!-- черты -->
+    <g class="baseEyes">
+      <ellipse cx="421" cy="312" rx="15" ry="13" fill="#fff"/>
+      <ellipse cx="479" cy="312" rx="15" ry="13" fill="#fff"/>
+      <circle cx="421" cy="313" r="8" fill="#4a2a3d"/>
+      <circle cx="479" cy="313" r="8" fill="#4a2a3d"/>
+      <circle cx="421" cy="313" r="3.4" fill="#17111a"/>
+      <circle cx="479" cy="313" r="3.4" fill="#17111a"/>
+      <circle cx="424.5" cy="309" r="2.4" fill="#fff"/>
+      <circle cx="482.5" cy="309" r="2.4" fill="#fff"/>
+    </g>
+    <g class="happyEyes" opacity="0">
+      <path d="M408 314 q13 -17 26 0" stroke="#2a1a24" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      <path d="M466 314 q13 -17 26 0" stroke="#2a1a24" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+    </g>
+    <path d="M406 290 q15 -9 30 -2" stroke="#2a1a24" stroke-width="3.6" fill="none" stroke-linecap="round" opacity=".9"/>
+    <path d="M464 288 q15 -7 30 2" stroke="#2a1a24" stroke-width="3.6" fill="none" stroke-linecap="round" opacity=".9"/>
+    <path d="M450 324 q5 9 -3 11" stroke="#d9a892" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path class="lips" d="M432 352 q9 -7 18 0 q9 -7 18 0 q-9 15 -18 15 q-9 0 -18 -15 Z"
+          fill="#7d1f3a"/>
+    <ellipse class="blush" cx="406" cy="344" rx="16" ry="9" fill="#f08aa6" opacity="0"/>
+    <ellipse class="blush" cx="494" cy="344" rx="16" ry="9" fill="#f08aa6" opacity="0"/>
+
+    <!-- чёлка -->
+    <g fill="#241c2b">
+      <ellipse cx="450" cy="204" rx="113" ry="48"/>
+      <path d="M318 226 L372 234 L336 316 Z"/>
+      <path d="M346 222 L400 230 L372 304 Z"/>
+      <path d="M382 216 L436 220 L410 282 Z"/>
+      <path d="M420 212 L476 212 L448 276 Z"/>
+      <path d="M460 212 L516 218 L492 280 Z"/>
+      <path d="M508 218 L562 228 L536 300 Z"/>
+      <path d="M540 230 L578 244 L558 292 Z"/>
+    </g>
+    <path d="M398 236 q-10 30 -2 46" stroke="#241c2b" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <path d="M504 232 q8 32 2 48" stroke="#241c2b" stroke-width="6" fill="none" stroke-linecap="round"/>
+
+    <!-- ГРЯЗЬ: лицо -->
+    <g class="dirt" data-zone="face">
+      <path d="M404 300 q17 -10 34 1" stroke="#141014" stroke-width="5"
+            fill="none" opacity=".7" stroke-linecap="round"/>
+      <path d="M462 301 q17 -11 34 -1" stroke="#141014" stroke-width="5"
+            fill="none" opacity=".7" stroke-linecap="round"/>
+      <path d="M409 324 q-4 12 2 18" stroke="#141014" stroke-width="3"
+            fill="none" opacity=".45"/>
+      <path d="M491 324 q4 12 -2 18" stroke="#141014" stroke-width="3"
+            fill="none" opacity=".45"/>
+    </g>
+    <g class="dirt" data-zone="face">
+      <path d="M424 352 q13 -9 26 0 q13 -9 26 0 q-13 17 -26 17 q-13 0 -26 -17 Z"
+            fill="#5e0f2c" opacity=".92"/>
+      <path d="M476 352 q22 5 28 16" stroke="#5e0f2c" stroke-width="6"
+            stroke-linecap="round" opacity=".6"/>
+      <path d="M424 352 q-20 4 -26 14" stroke="#5e0f2c" stroke-width="5"
+            stroke-linecap="round" opacity=".5"/>
+    </g>
+    <g class="dirt" data-zone="face">
+      <ellipse cx="416" cy="272" rx="24" ry="13" fill="#8a6547" opacity=".45" filter="url(#soft)"/>
+      <ellipse cx="492" cy="338" rx="17" ry="11" fill="#8a6547" opacity=".45" filter="url(#soft)"/>
+      <ellipse cx="450" cy="384" rx="14" ry="8" fill="#8a6547" opacity=".4" filter="url(#soft)"/>
+    </g>
+
+    <!-- ГРЯЗЬ: волосы -->
+    <g class="dirt" data-zone="hair">
+      <path d="M352 300 q-4 90 6 170" stroke="#6b5d6f" stroke-width="4" fill="none" opacity=".8"/>
+      <path d="M548 296 q6 96 -2 176" stroke="#6b5d6f" stroke-width="4" fill="none" opacity=".8"/>
+      <path d="M380 214 q40 -18 84 -6" stroke="#6b5d6f" stroke-width="3" fill="none" opacity=".7"/>
+    </g>
+    <g class="dirt" data-zone="hair">
+      <ellipse cx="404" cy="232" rx="40" ry="26" fill="#9c8259" opacity=".5" filter="url(#soft)"/>
+      <ellipse cx="506" cy="214" rx="34" ry="22" fill="#9c8259" opacity=".45" filter="url(#soft)"/>
+      <ellipse cx="450" cy="186" rx="30" ry="16" fill="#8f7a52" opacity=".4" filter="url(#soft)"/>
+    </g>
+    <g class="dirt" data-zone="hair">
+      <path d="M394 214 q30 -22 70 -12" stroke="#e9dfe7" stroke-width="7" fill="none"
+            opacity=".35" stroke-linecap="round"/>
+      <path d="M520 268 q10 40 0 80" stroke="#e9dfe7" stroke-width="6" fill="none"
+            opacity=".3" stroke-linecap="round"/>
+    </g>
+
+    <!-- ГРЯЗЬ: руки -->
+    <g class="dirt" data-zone="hands">
+      <circle cx="302" cy="684" r="15" fill="#7a5236" opacity=".6" filter="url(#soft)"/>
+      <circle cx="598" cy="684" r="14" fill="#7a5236" opacity=".6" filter="url(#soft)"/>
+    </g>
+    <g class="dirt" data-zone="hands">
+      <ellipse cx="330" cy="560" rx="12" ry="26" fill="#7a5236" opacity=".5"
+               filter="url(#soft)" transform="rotate(15 330 560)"/>
+      <ellipse cx="570" cy="552" rx="12" ry="26" fill="#7a5236" opacity=".5"
+               filter="url(#soft)" transform="rotate(-15 570 552)"/>
+    </g>
+    <g class="dirt" data-zone="hands">
+      <circle cx="292" cy="676" r="4" fill="#3a2618" opacity=".8"/>
+      <circle cx="310" cy="700" r="4" fill="#3a2618" opacity=".8"/>
+      <circle cx="590" cy="700" r="4" fill="#3a2618" opacity=".8"/>
+      <circle cx="607" cy="676" r="4" fill="#3a2618" opacity=".8"/>
+    </g>
+
+    <!-- ГРЯЗЬ: одежда -->
+    <g class="dirt" data-zone="clothes">
+      <ellipse cx="410" cy="470" rx="26" ry="18" fill="#8a6547" opacity=".55" filter="url(#soft)"/>
+      <ellipse cx="500" cy="560" rx="20" ry="14" fill="#6b4b33" opacity=".5" filter="url(#soft)"/>
+      <ellipse cx="470" cy="452" rx="14" ry="10" fill="#8a6547" opacity=".45" filter="url(#soft)"/>
+    </g>
+    <g class="dirt" data-zone="clothes">
+      <ellipse cx="404" cy="690" rx="28" ry="20" fill="#3a2418" opacity=".45" filter="url(#soft)"/>
+      <ellipse cx="500" cy="740" rx="24" ry="16" fill="#3a2418" opacity=".4" filter="url(#soft)"/>
+      <ellipse cx="452" cy="770" rx="18" ry="12" fill="#3a2418" opacity=".35" filter="url(#soft)"/>
+    </g>
+    <g class="dirt" data-zone="clothes">
+      <circle cx="392" cy="452" r="3.5" fill="#c9b7a6" opacity=".7"/>
+      <circle cx="512" cy="478" r="3" fill="#c9b7a6" opacity=".7"/>
+      <circle cx="470" cy="588" r="3" fill="#c9b7a6" opacity=".6"/>
+      <circle cx="424" cy="640" r="3" fill="#c9b7a6" opacity=".6"/>
+      <circle cx="494" cy="660" r="3.5" fill="#c9b7a6" opacity=".6"/>
+      <circle cx="380" cy="720" r="3" fill="#c9b7a6" opacity=".55"/>
+      <circle cx="520" cy="726" r="3" fill="#c9b7a6" opacity=".55"/>
+    </g>
+  </g>
+</g>
+
+<!-- зоны клика -->
+<g id="hits">
+  <ellipse class="hit" data-zone="hair" cx="450" cy="280" rx="132" ry="150"/>
+  <rect class="hit" data-zone="clothes" x="350" y="420" width="200" height="420" rx="70"/>
+  <circle class="hit" data-zone="hands" cx="302" cy="684" r="36"/>
+  <circle class="hit" data-zone="hands" cx="598" cy="684" r="36"/>
+  <ellipse class="hit" data-zone="face" cx="450" cy="306" rx="82" ry="98"/>
+</g>
+
+<!-- частицы -->
+<g id="fx"></g>
+
+<!-- HUD -->
+<g id="hud">
+  <text x="450" y="58" text-anchor="middle" font-size="44" font-weight="800" fill="#fff"
+        style="paint-order:stroke;stroke:#5b2340;stroke-width:10;stroke-linejoin:round"
+        font-family="'Segoe UI',system-ui,sans-serif">Отмой грязнульку</text>
+
+  <rect x="250" y="82" width="400" height="28" rx="14" fill="rgba(30,12,24,.45)"
+        stroke="rgba(255,255,255,.35)" stroke-width="2"/>
+  <rect id="bar" x="253" y="85" width="0" height="22" rx="11" fill="url(#gradPink)"/>
+  <text id="pct" x="450" y="102" text-anchor="middle" font-size="16" font-weight="700"
+        fill="#fff" font-family="'Segoe UI',system-ui,sans-serif">0%</text>
+
+  <text id="toast" x="450" y="986" text-anchor="middle" font-size="21" font-weight="600"
+        fill="#fff" style="paint-order:stroke;stroke:#4a1c36;stroke-width:8;stroke-linejoin:round"
+        font-family="'Segoe UI',system-ui,sans-serif">Возьми средство с полки</text>
+
+  <g id="snd" style="cursor:pointer">
+    <circle cx="848" cy="52" r="26" fill="rgba(0,0,0,.25)"/>
+    <text id="sndIcon" x="848" y="62" text-anchor="middle" font-size="24">🔊</text>
+  </g>
+</g>
+
+<!-- полка с инструментами -->
+<g id="shelf">
+  <rect x="0" y="1020" width="900" height="180" fill="url(#shelfGrad)"/>
+  <rect x="0" y="1020" width="900" height="10" fill="#54404c"/>
+  <rect x="0" y="1030" width="900" height="8" fill="#000" opacity=".25"/>
+
+  <g class="tool" data-zone="face" transform="translate(150,1112)">
+    <rect class="slotbg" x="-78" y="-76" width="156" height="146" rx="18"/>
+    <g class="inner">
+      <rect x="-16" y="-30" width="34" height="62" rx="8" fill="#f7a8c4"/>
+      <rect x="-8" y="-44" width="18" height="16" rx="4" fill="#d97b9d"/>
+      <rect x="-10" y="-12" width="22" height="26" rx="4" fill="#fff" opacity=".9"/>
+      <circle cx="32" cy="18" r="16" fill="#fdfaf7" stroke="#e8dce4" stroke-width="3"/>
+      <circle cx="32" cy="18" r="7" fill="none" stroke="#efe4ea" stroke-width="2"/>
+    </g>
+    <text y="54" text-anchor="middle" font-size="15" font-weight="600" fill="#eadfe6"
+          font-family="'Segoe UI',system-ui,sans-serif">Мицелярка</text>
+  </g>
+
+  <g class="tool" data-zone="hair" transform="translate(350,1112)">
+    <rect class="slotbg" x="-78" y="-76" width="156" height="146" rx="18"/>
+    <g class="inner">
+      <rect x="-18" y="-34" width="36" height="68" rx="8" fill="#79d3ae"/>
+      <rect x="-10" y="-48" width="20" height="16" rx="4" fill="#4aa583"/>
+      <rect x="-12" y="-14" width="24" height="30" rx="4" fill="#fff" opacity=".9"/>
+      <path d="M-6 -2 h12 M-6 8 h12" stroke="#79d3ae" stroke-width="3" opacity=".9"/>
+    </g>
+    <text y="54" text-anchor="middle" font-size="15" font-weight="600" fill="#eadfe6"
+          font-family="'Segoe UI',system-ui,sans-serif">Шампунь</text>
+  </g>
+
+  <g class="tool" data-zone="hands" transform="translate(550,1112)">
+    <rect class="slotbg" x="-78" y="-76" width="156" height="146" rx="18"/>
+    <g class="inner">
+      <rect x="-30" y="4" width="56" height="24" rx="8" fill="#cfeaf3"/>
+      <rect x="-24" y="-26" width="48" height="42" rx="12" fill="#f9d36a"/>
+      <circle cx="-10" cy="-12" r="3" fill="#e0b447"/>
+      <circle cx="6" cy="-4" r="3" fill="#e0b447"/>
+      <circle cx="12" cy="-16" r="2.5" fill="#e0b447"/>
+      <ellipse cx="16" cy="10" rx="8" ry="4" fill="#e8c35a"/>
+    </g>
+    <text y="54" text-anchor="middle" font-size="15" font-weight="600" fill="#eadfe6"
+          font-family="'Segoe UI',system-ui,sans-serif">Губка и мыло</text>
+  </g>
+
+  <g class="tool" data-zone="clothes" transform="translate(750,1112)">
+    <rect class="slotbg" x="-78" y="-76" width="156" height="146" rx="18"/>
+    <g class="inner">
+      <g transform="rotate(18)">
+        <rect x="-8" y="-40" width="16" height="50" rx="7" fill="#c98a5b"/>
+        <rect x="-24" y="8" width="48" height="14" rx="6" fill="#8a5a3b"/>
+        <path d="M-19 22 v10 M-12 22 v10 M-5 22 v10 M2 22 v10 M9 22 v10 M16 22 v10"
+              stroke="#efe3d6" stroke-width="4" stroke-linecap="round"/>
+      </g>
+    </g>
+    <text y="54" text-anchor="middle" font-size="15" font-weight="600" fill="#eadfe6"
+          font-family="'Segoe UI',system-ui,sans-serif">Щётка</text>
+  </g>
+</g>
+
+<!-- победа -->
+<g id="win">
+  <rect width="900" height="1200" fill="rgba(24,10,20,.45)"/>
+  <g class="card">
+    <rect x="190" y="430" width="520" height="300" rx="34" fill="#fff7fb"
+          stroke="#ff9ec4" stroke-width="8"/>
+    <text x="450" y="512" text-anchor="middle" font-size="40" font-weight="800" fill="#5b2340"
+          font-family="'Segoe UI',system-ui,sans-serif">Идеально чистая!</text>
+    <text id="winSub" x="450" y="560" text-anchor="middle" font-size="21" fill="#8a5a72"
+          font-family="'Segoe UI',system-ui,sans-serif">…</text>
+    <g id="again" style="cursor:pointer">
+      <rect x="330" y="620" width="240" height="66" rx="33" fill="#ff8fbb"
+            stroke="#e05f92" stroke-width="4"/>
+      <text x="450" y="663" text-anchor="middle" font-size="26" font-weight="700" fill="#fff"
+            font-family="'Segoe UI',system-ui,sans-serif">Заново</text>
+    </g>
+  </g>
+</g>
+</svg>
+
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const stage   = document.getElementById('stage');
+  const fx      = document.getElementById('fx');
+  const toastEl = document.getElementById('toast');
+  const bar     = document.getElementById('bar');
+  const pctEl   = document.getElementById('pct');
+  const winEl   = document.getElementById('win');
+  const winSub  = document.getElementById('winSub');
+  const again   = document.getElementById('again');
+
+  /* ---------- состояние ---------- */
+  let selected = null;
+  let cleaned  = 0;
+  let total    = 0;
+  let clicks   = 0;
+  let done     = false;
+  let muted    = false;
+  let toastTimer = null;
+
+  const dirt = {};
+  document.querySelectorAll('.dirt').forEach(el => {
+    const z = el.dataset.zone;
+    (dirt[z] = dirt[z] || []).push(el);
+    total++;
+  });
+
+  /* ---------- звук ---------- */
+  let ac = null;
+  function beep(freq, dur, type = 'sine', vol = .05, to = null) {
+    if (muted) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      if (to) o.frequency.exponentialRampToValueAtTime(to, ac.currentTime + dur);
+      g.gain.value = vol;
+      g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + dur);
+      o.connect(g).connect(ac.destination);
+      o.start();
+      o.stop(ac.currentTime + dur);
+    } catch (e) { /* без звука живём */ }
+  }
+
+  /* ---------- вспомогательное ---------- */
+  function svgPoint(evt) {
+    const p = stage.createSVGPoint();
+    p.x = evt.clientX;
+    p.y = evt.clientY;
+    return p.matrixTransform(stage.getScreenCTM().inverse());
+  }
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1600);
+  }
+
+  function burst(x, y, color) {
+    for (let i = 0; i < 9; i++) {
+      const c = document.createElementNS(NS, 'circle');
+      const r = 3 + Math.random() * 5;
+      c.setAttribute('r', r);
+      c.setAttribute('fill', color);
+      c.setAttribute('cx', x);
+      c.setAttribute('cy', y);
+      fx.appendChild(c);
+      const a = Math.random() * Math.PI * 2;
+      const d = 35 + Math.random() * 80;
+      c.animate([
+        { transform: 'translate(0px,0px)', opacity: 1 },
+        { transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d}px)`, opacity: 0 }
+      ], { duration: 450 + Math.random() * 350, easing: 'ease-out' })
+        .onfinish = () => c.remove();
+    }
+  }
+
+  function star(x, y, size, delay) {
+    const s = document.createElementNS(NS, 'path');
+    s.setAttribute('d',
+      `M${x} ${y - size} L${x + size * .26} ${y - size * .26} L${x + size} ${y} ` +
+      `L${x + size * .26} ${y + size * .26} L${x} ${y + size} ` +
+      `L${x - size * .26} ${y + size * .26} L${x - size} ${y} ` +
+      `L${x - size * .26} ${y - size * .26} Z`);
+    s.setAttribute('fill', '#fff3b0');
+    s.style.opacity = 0;
+    fx.appendChild(s);
+    s.animate([
+      { opacity: 0, transform: 'scale(0) rotate(0deg)' },
+      { opacity: 1, transform: 'scale(1) rotate(90deg)', offset: .3 },
+      { opacity: 1, transform: 'scale(.9) rotate(140deg)', offset: .6 },
+      { opacity: 0, transform: 'scale(.2) rotate(200deg)' }
+    ], { duration: 1800, delay, easing: 'ease-in-out' })
+      .onfinish = () => s.remove();
+  }
+
+  /* ---------- прогресс ---------- */
+  function updateBar() {
+    const p = Math.round(cleaned / total * 100);
+    bar.setAttribute('width', Math.max(0, 494 * p / 100));
+    pctEl.textContent = p + '%';
+  }
+  updateBar();
+
+  /* ---------- выбор инструмента ---------- */
+  document.querySelectorAll('.tool').forEach(tool => {
+    tool.addEventListener('click', () => {
+      if (done) return;
+      selected = (selected === tool) ? null : tool;
+      document.querySelectorAll('.tool').forEach(t =>
+        t.classList.toggle('sel', t === selected));
+    });
+  });
+
+  /* ---------- клик по зоне ---------- */
+  const toolName = {
+    face: 'Мицелярка', hair: 'Шампунь', hands: 'Губка с мылом', clothes: 'Щётка'
+  };
+
+  document.querySelectorAll('.hit').forEach(hit => {
+    hit.addEventListener('click', evt => {
+      if (done) return;
+      const zone = hit.dataset.zone;
+      const p = svgPoint(evt);
+      clicks++;
+
+      if (!selected) {
+        toast('Сначала возьми что-нибудь с полки 🧴');
+        return;
+      }
+      if (selected.dataset.zone !== zone) {
+        hit.classList.add('err');
+        setTimeout(() => hit.classList.remove('err'), 420);
+        toast(`${toolName[selected.dataset.zone]} тут не поможет 🙈`);
+        beep(160, .16, 'sawtooth', .05, 90);
+        return;
+      }
+
+      const list = dirt[zone];
+      if (!list || !list.length) {
+        toast('Тут уже чисто ✨');
+        return;
+      }
+
+      const el = list.shift();
+      el.style.opacity = 0;
+
+      cleaned++;
+      updateBar();
+      burst(p.x, p.y, zone === 'face' ? '#ffd1e3' : '#ffe6a8');
+      beep(680, .12, 'triangle', .05, 1500);
+
+      if (!list.length) setTimeout(() => burst(p.x, p.y, '#ffffff'), 130);
+
+      if (cleaned >= total) win();
+    });
+  });
+
+  /* ---------- победа ---------- */
+  function win() {
+    done = true;
+    stage.classList.add('clean');
+    document.querySelectorAll('.tool').forEach(t => t.classList.remove('sel'));
+    selected = null;
+
+    winSub.textContent = `${clicks} кликов — и никакой грязи ✨`;
+    winEl.classList.add('show');
+
+    beep(880, .12, 'sine', .06);
+    setTimeout(() => beep(1180, .16, 'sine', .06), 130);
+    setTimeout(() => beep(1560, .22, 'sine', .05), 280);
+
+    for (let i = 0; i < 18; i++) {
+      const x = 240 + Math.random() * 420;
+      const y = 200 + Math.random() * 620;
+      star(x, y, 8 + Math.random() * 14, i * 45);
+    }
+  }
+
+  /* ---------- заново ---------- */
+  again.addEventListener('click', () => {
+    document.querySelectorAll('.dirt').forEach(el => el.style.opacity = '');
+    document.querySelectorAll('.tool').forEach(t => t.classList.remove('sel'));
+    document.querySelectorAll('.hit').forEach(h => h.classList.remove('err'));
+    selected = null;
+    done = false;
+    clicks = 0;
+    cleaned = 0;
+    stage.classList.remove('clean');
+    winEl.classList.remove('show');
+    updateBar();
+    toast('Погнали заново 💅');
+  });
+
+  /* ---------- звук вкл/выкл ---------- */
+  document.getElementById('snd').addEventListener('click', () => {
+    muted = !muted;
+    document.getElementById('sndIcon').textContent = muted ? '🔇' : '🔊';
+  });
+
+  /* ---------- старт ---------- */
+  updateBar();
+  toast('Выбери средство на полке и отмой её 💅');
+})();
+</script>
+</body>
+</html>

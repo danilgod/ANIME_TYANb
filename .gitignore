@@ -1,0 +1,13 @@
+# тестовые и неиспользуемые ассеты
+models/ember.glb
+models/sky.glb
+models/*.png
+models/shino.zip
+
+# ранние тестовые страницы (зависят от исключённых моделей)
+model-test.html
+vrm-test.html
+
+# мусор ОС
+Thumbs.db
+desktop.ini
