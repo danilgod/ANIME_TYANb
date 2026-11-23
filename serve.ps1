@@ -17,19 +17,29 @@ while ($listener.IsListening) {
         ".html" { "text/html; charset=utf-8" }
         ".css"  { "text/css; charset=utf-8" }
         ".js"   { "application/javascript; charset=utf-8" }
+        ".mjs"  { "text/javascript; charset=utf-8" }
+        ".json" { "application/json; charset=utf-8" }
+        ".wasm" { "application/wasm" }
+        ".task" { "application/octet-stream" }
         ".svg"  { "image/svg+xml" }
         ".png"  { "image/png" }
         ".jpg"  { "image/jpeg" }
+        ".mp3"  { "audio/mpeg" }
+        ".wav"  { "audio/wav" }
         ".glb"  { "model/gltf-binary" }
         ".vrm"  { "application/octet-stream" }
         default { "application/octet-stream" }
       }
       $ctx.Response.ContentType = $ct
       $ctx.Response.ContentLength64 = $bytes.Length
-      $ctx.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+      $ctx.Response.AddHeader("Access-Control-Allow-Origin", "*")
+      $ctx.Response.AddHeader("Cache-Control", "no-cache")
+      if ($ctx.Request.HttpMethod -ne "HEAD") {
+        $ctx.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+      }
     } else {
       $ctx.Response.StatusCode = 404
     }
     $ctx.Response.Close()
-  } catch { break }
+  } catch { Start-Sleep -Milliseconds 20 }
 }

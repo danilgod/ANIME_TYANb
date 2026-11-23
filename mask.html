@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0710">
+<title>Нефор-мейкап — маска</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#060409;overflow:hidden;
+    font-family:'Segoe UI',system-ui,-apple-system,'Helvetica Neue',sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  #frame{position:relative;height:100%;aspect-ratio:9/16;max-width:100vw;margin:0 auto;
+    overflow:hidden;background:#0b0710}
+  #stage{display:block;width:100%;height:100%;transform:scaleX(-1)}
+  #cam{position:absolute;top:0;left:0;width:2px;height:2px;opacity:0;pointer-events:none}
+  #photo{display:none}
+
+  /* HUD */
+  #hud{position:absolute;inset:0 0 auto 0;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    opacity:0;transition:opacity .35s}
+  #hud.on{opacity:1}
+  .logo{color:#fff;font-size:15px;font-weight:800;letter-spacing:.6px;
+    text-shadow:0 2px 12px rgba(0,0,0,.7)}
+  .logo b{color:#9ef3ee}
+  .logo i{font-style:normal;color:#c693ff}
+  .hudBtns{display:flex;gap:8px;pointer-events:auto}
+  .hudBtns button{height:40px;min-width:40px;padding:0 12px;border-radius:20px;
+    border:1px solid rgba(255,255,255,.22);background:rgba(14,8,18,.5);color:#fff;
+    font-size:13px;font-weight:700;cursor:pointer;
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    transition:transform .12s,background .12s}
+  .hudBtns button:active{transform:scale(.94)}
+  .hudBtns button.down{background:rgba(158,243,238,.9);color:#0b2222;border-color:#9ef3ee}
+
+  #hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);
+    transform:translateX(-50%) translateY(8px);white-space:nowrap;
+    padding:10px 18px;border-radius:22px;font-size:14px;font-weight:600;color:#fff;
+    background:rgba(16,8,20,.55);border:1px solid rgba(255,255,255,.16);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    opacity:0;transition:opacity .3s,transform .3s;pointer-events:none}
+  #hint.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* старт */
+  #start{position:absolute;inset:0;display:grid;place-items:center;padding:24px;
+    background:
+      radial-gradient(90% 60% at 50% 8%,rgba(120,60,160,.35),transparent 60%),
+      radial-gradient(80% 50% at 50% 100%,rgba(40,180,175,.18),transparent 60%),
+      #0a0610;
+    transition:opacity .45s;z-index:5;overflow:hidden}
+  #start.hidden{opacity:0;pointer-events:none}
+  #start::after{content:'';position:absolute;inset:0;
+    background:repeating-linear-gradient(115deg,rgba(255,255,255,.028) 0 2px,transparent 2px 9px);
+    pointer-events:none}
+  .startCard{position:relative;z-index:1;width:100%;max-width:360px;text-align:center}
+  .kicker{font-size:11px;letter-spacing:3.4px;text-transform:uppercase;color:#9ef3ee;
+    font-weight:700;margin-bottom:16px;opacity:.85}
+  h1{margin:0 0 8px;font-size:46px;line-height:.95;font-weight:900;color:#fff;letter-spacing:-1px}
+  h1 span{background:linear-gradient(90deg,#c693ff,#9ef3ee);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:#c9b8d4;font-size:14px;line-height:1.55;margin:14px 0 26px}
+  button{font-family:inherit;cursor:pointer}
+  .primary{display:block;width:100%;padding:17px;border:0;border-radius:16px;
+    font-size:16px;font-weight:800;color:#12060f;
+    background:linear-gradient(90deg,#c693ff,#9ef3ee);
+    box-shadow:0 12px 34px rgba(150,100,255,.28);transition:transform .15s,filter .15s}
+  .primary:active{transform:scale(.97)}
+  .primary[disabled]{filter:grayscale(.55) brightness(.75);cursor:default}
+  .ghost{display:block;width:100%;margin-top:10px;padding:15px;border-radius:16px;
+    border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);
+    color:#e9dde3;font-size:14px;font-weight:600}
+  .ghost:active{background:rgba(255,255,255,.1)}
+  .msg{margin-top:16px;font-size:12px;line-height:1.5;color:#ffb3b3;min-height:34px}
+  .msg.ok{color:#8fe3c9}
+
+  @media (max-height:640px){h1{font-size:34px}.sub{margin:10px 0 18px;font-size:13px}}
+</style>
+</head>
+<body>
+<div id="frame">
+  <canvas id="stage"></canvas>
+  <video id="cam" playsinline muted autoplay></video>
+  <img id="photo" alt="">
+
+  <div id="hud">
+    <div class="logo">нефор<i>-</i>мейкап</div>
+    <div class="hudBtns">
+      <button id="btnHold" title="Показать без макияжа">до/после</button>
+      <button id="btnBack" title="Начать заново">↺</button>
+    </div>
+  </div>
+
+  <div id="hint">Макияж держится на лице — можешь крутить головой</div>
+
+  <div id="start">
+    <div class="startCard">
+      <div class="kicker">маска для tiktok</div>
+      <h1>НЕФОР<br><span>МЕЙКАП</span></h1>
+      <p class="sub">Тяжёлая подводка с крылом, тёмные тени, бледная кожа и чёрные губы. Макияж ложится точно по лицу.</p>
+      <button id="btnCam" class="primary">Включить камеру</button>
+      <button id="btnPhoto" class="ghost">Посмотреть на фото</button>
+      <div id="startMsg" class="msg"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from './vendor/mediapipe/vision_bundle.mjs';
+
+const $ = s => document.querySelector(s);
+const frameEl = $('#frame');
+const canvas  = $('#stage');
+const ctx     = canvas.getContext('2d', { alpha: false });
+const video   = $('#cam');
+const photo   = $('#photo');
+const hud     = $('#hud');
+const hintEl  = $('#hint');
+const startEl = $('#start');
+const startMsg= $('#startMsg');
+
+const state = {
+  mode: 'idle',        // idle | live | photo
+  face: null,
+  img: null,
+  compare: false,
+  lastFace: 0,
+};
+
+/* =========================================================
+   размеры
+   ========================================================= */
+let W = 0, H = 0, DPR = 1;
+function resizeCanvas() {
+  const r = frameEl.getBoundingClientRect();
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(1, Math.round(r.width * DPR));
+  H = Math.max(1, Math.round(r.height * DPR));
+  canvas.width = W;
+  canvas.height = H;
+}
+addEventListener('resize', resizeCanvas);
+addEventListener('orientationchange', () => setTimeout(resizeCanvas, 250));
+
+/* =========================================================
+   точки лица
+   ========================================================= */
+const I = {
+  L_OUT: 33, L_IN: 133, R_OUT: 263, R_IN: 362,
+  UPPER_L: [33, 246, 161, 160, 159, 158, 157, 173, 133],
+  LOWER_L: [33, 7, 163, 144, 145, 153, 154, 155, 133],
+  UPPER_R: [263, 466, 388, 387, 386, 385, 384, 398, 362],
+  LOWER_R: [263, 249, 390, 373, 374, 380, 381, 382, 362],
+  BROW_L: [70, 63, 105, 66, 107],
+  BROW_R: [300, 293, 334, 296, 336],
+  LIPS_OUT: [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84, 181, 91, 146],
+  LIPS_IN:  [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95],
+  OVAL: [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378,
+         400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21,
+         54, 103, 67, 109],
+  CHEEK_L: 50, CHEEK_R: 280, NOSE_TIP: 4,
+  CHIN: 152, FOREHEAD: 10, JAW_L: 234, JAW_R: 454,
+};
+
+let cover = { s: 1, ox: 0, oy: 0, vw: 1, vh: 1 };
+
+function mapPoint(l) {
+  return {
+    x: cover.ox + l.x * cover.vw * cover.s,
+    y: cover.oy + l.y * cover.vh * cover.s,
+  };
+}
+const P = i => mapPoint(state.face[i]);
+
+/* =========================================================
+   геометрия
+   ========================================================= */
+const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const centroid = pts => pts.reduce((s, p) => ({ x: s.x + p.x / pts.length, y: s.y + p.y / pts.length }), { x: 0, y: 0 });
+
+function smoothPath(pts, closed) {
+  const n = pts.length;
+  ctx.beginPath();
+  if (n < 3) {
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < n; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    return;
+  }
+  if (closed) {
+    const m0 = mid(pts[n - 1], pts[0]);
+    ctx.moveTo(m0.x, m0.y);
+    for (let i = 0; i < n; i++) {
+      const p = pts[i], q = pts[(i + 1) % n], m = mid(p, q);
+      ctx.quadraticCurveTo(p.x, p.y, m.x, m.y);
+    }
+    ctx.closePath();
+  } else {
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < n - 1; i++) {
+      const m = mid(pts[i], pts[i + 1]);
+      ctx.quadraticCurveTo(pts[i].x, pts[i].y, m.x, m.y);
+    }
+    const last = pts[n - 1];
+    ctx.quadraticCurveTo(last.x, last.y, last.x, last.y);
+  }
+}
+
+function addSmoothClosed(pts) {
+  const n = pts.length;
+  const m0 = mid(pts[n - 1], pts[0]);
+  ctx.moveTo(m0.x, m0.y);
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], q = pts[(i + 1) % n], m = mid(p, q);
+    ctx.quadraticCurveTo(p.x, p.y, m.x, m.y);
+  }
+  ctx.closePath();
+}
+
+function upNormals(pts) {
+  return pts.map((p, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    let tx = b.x - a.x, ty = b.y - a.y;
+    const L = Math.hypot(tx, ty) || 1;
+    tx /= L; ty /= L;
+    let nx = -ty, ny = tx;
+    if (ny > 0) { nx = -nx; ny = -ny; }
+    return { x: nx, y: ny };
+  });
+}
+
+/* =========================================================
+   макияж
+   ========================================================= */
+function drawTint() {
+  // общий холодный тон фильтра
+  ctx.fillStyle = 'rgba(176,160,214,.075)';
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawBlush(eyeD) {
+  for (const idx of [I.CHEEK_L, I.CHEEK_R]) {
+    const p = P(idx);
+    const r = eyeD * .55;
+    const g = ctx.createRadialGradient(p.x, p.y, r * .1, p.x, p.y, r);
+    g.addColorStop(0, 'rgba(168,44,96,.24)');
+    g.addColorStop(.55, 'rgba(150,40,88,.12)');
+    g.addColorStop(1, 'rgba(150,40,88,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, 7);
+    ctx.fill();
+  }
+}
+
+function drawEyeShadow(up, lo, dims) {
+  const { w, h, cen } = dims;
+  if (h < w * .05) return;
+
+  const inner = up[up.length - 1], outer = up[0];
+  const ang = Math.atan2(outer.y - inner.y, outer.x - inner.x);
+
+  ctx.save();
+  ctx.translate(cen.x, cen.y);
+  ctx.rotate(ang);
+  ctx.scale(1, 1.25);
+
+  // широкое облако тени
+  const R = w * .88;
+  const cy = -h * .42;
+  let g = ctx.createRadialGradient(0, cy, R * .03, 0, cy, R);
+  g.addColorStop(0, 'rgba(44,8,50,.46)');
+  g.addColorStop(.38, 'rgba(52,12,60,.30)');
+  g.addColorStop(.72, 'rgba(58,18,66,.13)');
+  g.addColorStop(1, 'rgba(58,18,66,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, cy, R, 0, 7);
+  ctx.fill();
+
+  // плотная тень у самого века
+  const R2 = w * .46;
+  g = ctx.createRadialGradient(0, -h * .12, 1, 0, -h * .12, R2);
+  g.addColorStop(0, 'rgba(34,4,40,.55)');
+  g.addColorStop(.6, 'rgba(38,8,46,.28)');
+  g.addColorStop(1, 'rgba(38,8,46,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, -h * .12, R2, 0, 7);
+  ctx.fill();
+
+  // растушёвка под нижним веком
+  const R3 = w * .40;
+  g = ctx.createRadialGradient(0, h * .55, 1, 0, h * .55, R3);
+  g.addColorStop(0, 'rgba(40,8,46,.30)');
+  g.addColorStop(1, 'rgba(40,8,46,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, h * .55, R3, 0, 7);
+  ctx.fill();
+
+  // бирюзовый акцент у внешнего угла
+  const g2 = ctx.createRadialGradient(w * .46, -h * .55, 1, w * .46, -h * .55, w * .34);
+  g2.addColorStop(0, 'rgba(80,220,210,.34)');
+  g2.addColorStop(1, 'rgba(80,220,210,0)');
+  ctx.fillStyle = g2;
+  ctx.beginPath();
+  ctx.arc(w * .46, -h * .55, w * .34, 0, 7);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBrow(brow, eyeD) {
+  const w = Math.max(1.1, eyeD * .042);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // мягкая подложка
+  ctx.strokeStyle = 'rgba(28,16,30,.16)';
+  ctx.lineWidth = w * 1.7;
+  smoothPath(brow, false);
+  ctx.stroke();
+
+  // сами брови
+  ctx.strokeStyle = 'rgba(24,14,26,.85)';
+  ctx.lineWidth = w;
+  smoothPath(brow, false);
+  ctx.stroke();
+
+  // тонкие волоски
+  ctx.strokeStyle = 'rgba(60,40,66,.35)';
+  ctx.lineWidth = Math.max(.8, w * .16);
+  for (let i = 1; i < brow.length - 1; i++) {
+    const p = brow[i];
+    ctx.beginPath();
+    ctx.moveTo(p.x - w * .9, p.y - w * .35);
+    ctx.lineTo(p.x + w * .8, p.y - w * .8);
+    ctx.stroke();
+  }
+}
+
+function drawEyeLiner(up, lo, dims) {
+  const { w, h, inner, outer } = dims;
+  if (h < w * .05) return;
+
+  const nrm = upNormals(up);
+  const n = up.length;
+  const tAt = k => w * (.135 - .095 * k);        // толще у внешнего угла
+
+  ctx.beginPath();
+  ctx.moveTo(up[0].x, up[0].y);
+  for (let i = 0; i < n; i++) {
+    const t = tAt(i / (n - 1));
+    ctx.lineTo(up[i].x + nrm[i].x * t, up[i].y + nrm[i].y * t);
+  }
+  for (let i = n - 1; i >= 0; i--) ctx.lineTo(up[i].x, up[i].y);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(14,7,16,.95)';
+  ctx.fill();
+
+  // крыло
+  let dx = outer.x - centroid([outer, inner]).x;
+  let dy = outer.y - centroid([outer, inner]).y;
+  const dl = Math.hypot(dx, dy) || 1;
+  dx /= dl; dy /= dl;
+
+  let ux = -dy, uy = dx;
+  if (uy > 0) { ux = -ux; uy = -uy; }
+
+  const len = w * .60;
+  const tip = { x: outer.x + dx * len + ux * len * 1.05, y: outer.y + dy * len + uy * len * 1.05 };
+  const baseTop = { x: outer.x + nrm[0].x * tAt(0) * 1.15, y: outer.y + nrm[0].y * tAt(0) * 1.15 };
+  const ctrl = {
+    x: outer.x + dx * len * .52 + ux * len * .42,
+    y: outer.y + dy * len * .52 + uy * len * .42,
+  };
+
+  ctx.beginPath();
+  ctx.moveTo(baseTop.x, baseTop.y);
+  ctx.quadraticCurveTo(ctrl.x, ctrl.y, tip.x, tip.y);
+  ctx.quadraticCurveTo(outer.x + dx * w * .10, outer.y + dy * w * .10,
+                       outer.x + dx * w * .02, outer.y + dy * w * .02);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(14,7,16,.95)';
+  ctx.fill();
+
+  // нижняя стрелка-растушёвка
+  ctx.strokeStyle = 'rgba(24,10,24,.55)';
+  ctx.lineWidth = Math.max(1, w * .045);
+  ctx.lineCap = 'round';
+  smoothPath(lo, false);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(24,10,24,.22)';
+  ctx.lineWidth = Math.max(2, w * .12);
+  ctx.beginPath();
+  for (let i = 0; i < lo.length; i++) {
+    const p = { x: lo[i].x, y: lo[i].y + w * .045 };
+    i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+  }
+  ctx.stroke();
+
+  // две точки-тату под внешним уголком
+  const dotR = Math.max(1.2, w * .030);
+  ctx.fillStyle = 'rgba(16,8,18,.85)';
+  for (let k = 0; k < 2; k++) {
+    ctx.beginPath();
+    ctx.arc(outer.x + dx * w * (.10 + k * .13) + uy * -w * .02,
+            outer.y + dy * w * (.10 + k * .13) + w * (.12 + k * .10),
+            dotR, 0, 7);
+    ctx.fill();
+  }
+}
+
+function drawLips() {
+  const out = I.LIPS_OUT.map(P);
+  const inn = I.LIPS_IN.map(P);
+
+  const ys = out.map(p => p.y);
+  const g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys));
+  g.addColorStop(0, '#5e1533');
+  g.addColorStop(.45, '#3c0b20');
+  g.addColorStop(1, '#561129');
+
+  // кольцо помады: внешний контур минус рот
+  ctx.beginPath();
+  addSmoothClosed(out);
+  addSmoothClosed(inn);
+  ctx.fillStyle = g;
+  ctx.fill('evenodd');
+
+  // контур губ
+  const eyeD = dist(P(I.L_OUT), P(I.R_OUT));
+  ctx.strokeStyle = 'rgba(14,3,9,.55)';
+  ctx.lineWidth = Math.max(1, eyeD * .012);
+  smoothPath(out, true);
+  ctx.stroke();
+
+  // тень внутри рта для объёма
+  smoothPath(inn, true);
+  ctx.fillStyle = 'rgba(14,3,9,.30)';
+  ctx.fill();
+
+  // блик на нижней губе
+  const low = centroid([out[17], out[18], out[19]]);
+  const r = dist(out[0], out[19]) * .7;
+  const hg = ctx.createRadialGradient(low.x, low.y, 1, low.x, low.y, r);
+  hg.addColorStop(0, 'rgba(255,220,235,.26)');
+  hg.addColorStop(1, 'rgba(255,220,235,0)');
+  ctx.fillStyle = hg;
+  ctx.beginPath();
+  ctx.ellipse(low.x, low.y, r * .8, r * .4, 0, 0, 7);
+  ctx.fill();
+}
+
+function drawFreckles(aff, eyeD) {
+  if (!aff) return;
+  const spots = [
+    [-.30, .16], [-.18, .20], [-.06, .17], [.05, .21], [.17, .17], [.29, .20],
+    [-.24, .28], [-.10, .30], [.05, .29], [.20, .28],
+    [-.36, .24], [.35, .24],
+  ];
+  for (let i = 0; i < spots.length; i++) {
+    const [a, b] = spots[i];
+    const [dx, dy] = [(a / 2.36 + .5) * 640, (b / 2.36 + .5) * 640];
+    const x = aff[4] + aff[0] * dx + aff[2] * dy;
+    const y = aff[5] + aff[1] * dx + aff[3] * dy;
+    const rnd = ((i * 37) % 13) / 13;
+    ctx.fillStyle = `rgba(88,44,64,${.28 + rnd * .22})`;
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(1, eyeD * (.010 + rnd * .008)), 0, 7);
+    ctx.fill();
+  }
+}
+
+function drawNoseHighlight() {
+  const p = P(I.NOSE_TIP);
+  const eyeD = dist(P(I.L_OUT), P(I.R_OUT));
+  const r = eyeD * .16;
+  const g = ctx.createRadialGradient(p.x, p.y - r * .4, 1, p.x, p.y - r * .4, r);
+  g.addColorStop(0, 'rgba(255,246,255,.22)');
+  g.addColorStop(1, 'rgba(255,246,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y - r * .4, r, 0, 7);
+  ctx.fill();
+}
+
+function drawVignette() {
+  const g = ctx.createRadialGradient(W / 2, H * .45, Math.min(W, H) * .34,
+                                     W / 2, H * .45, Math.max(W, H) * .72);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(24,4,26,.42)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawMakeup() {
+  const face = state.face;
+  if (!face) return;
+
+  const eyeD = dist(P(I.L_OUT), P(I.R_OUT));
+  if (eyeD < 12) return;
+
+  drawTint();
+  drawBlush(eyeD);
+
+  const dimsL = eyeDims(I.UPPER_L.map(P), I.LOWER_L.map(P));
+  const dimsR = eyeDims(I.UPPER_R.map(P), I.LOWER_R.map(P));
+
+  // тени → брови → подводка
+  drawEyeShadow(I.UPPER_L.map(P), I.LOWER_L.map(P), dimsL);
+  drawEyeShadow(I.UPPER_R.map(P), I.LOWER_R.map(P), dimsR);
+
+  drawBrow(I.BROW_L.map(P), eyeD);
+  drawBrow(I.BROW_R.map(P), eyeD);
+
+  drawEyeLiner(I.UPPER_L.map(P), I.LOWER_L.map(P), dimsL);
+  drawEyeLiner(I.UPPER_R.map(P), I.LOWER_R.map(P), dimsR);
+
+  drawLips();
+  drawNoseHighlight();
+  drawFreckles(computeAffine(eyeD), eyeD);
+  drawVignette();
+}
+
+function eyeDims(up, lo) {
+  const inner = up[up.length - 1], outer = up[0];
+  const w = dist(outer, inner) || 1;
+  let h = 0;
+  for (let i = 0; i < up.length; i++) h += Math.abs(up[i].y - lo[i].y);
+  h /= up.length;
+  return { inner, outer, w, h, cen: centroid([...up, ...lo]) };
+}
+
+function computeAffine(eyeD) {
+  const eL = P(I.L_OUT), eR = P(I.R_OUT);
+  const top = P(I.FOREHEAD), chin = P(I.CHIN);
+  const dHead = dist(chin, top) || 1;
+  const ux = (eR.x - eL.x) / eyeD, uy = (eR.y - eL.y) / eyeD;
+  const vx = (chin.x - top.x) / dHead, vy = (chin.y - top.y) / dHead;
+  const mx = (eL.x + eR.x) / 2, my = (eL.y + eR.y) / 2;
+  const k = 2.36 / 640;
+  const ex = k * eyeD * ux, ey = k * eyeD * uy;
+  const fx = k * dHead * vx, fy = k * dHead * vy;
+  const tx = mx - 1.18 * eyeD * ux - 1.18 * dHead * vx;
+  const ty = my - 1.18 * eyeD * uy - 1.18 * dHead * vy;
+  return [ex, ey, fx, fy, tx, ty];
+}
+
+/* =========================================================
+   камера / фото
+   ========================================================= */
+let landmarker = null;
+let lmMode = null;
+
+async function initLandmarker(runningMode) {
+  if (landmarker && lmMode === runningMode) return landmarker;
+  const fileset = await FilesetResolver.forVisionTasks('./vendor/mediapipe/wasm');
+  const opts = {
+    baseOptions: { modelAssetPath: './vendor/mediapipe/face_landmarker.task', delegate: 'GPU' },
+    runningMode,
+    numFaces: 1,
+    outputFaceBlendshapes: false,
+    outputFacialTransformationMatrixes: false,
+    minFaceDetectionConfidence: .4,
+    minFacePresenceConfidence: .4,
+    minTrackingConfidence: .4,
+  };
+  try {
+    landmarker = await FaceLandmarker.createFromOptions(fileset, opts);
+  } catch (e) {
+    opts.baseOptions.delegate = 'CPU';
+    landmarker = await FaceLandmarker.createFromOptions(fileset, opts);
+  }
+  lmMode = runningMode;
+  return landmarker;
+}
+
+async function startCamera() {
+  const btn = $('#btnCam');
+  btn.disabled = true;
+  startMsg.className = 'msg';
+  startMsg.textContent = 'запрашиваю камеру…';
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+    });
+    video.srcObject = stream;
+    await video.play();
+    state.mode = 'live';
+
+    startMsg.textContent = 'загружаю трекер лица…';
+    await initLandmarker('VIDEO');
+
+    resizeCanvas();
+    enterGame();
+  } catch (e) {
+    console.error(e);
+    startMsg.className = 'msg';
+    startMsg.textContent = !window.isSecureContext
+      ? 'камера на iPhone работает только по https-ссылке. Пока открой «на фото».'
+      : 'камера недоступна: ' + (e.name === 'NotAllowedError' ? 'разреши доступ к камере' : e.message);
+    btn.disabled = false;
+  }
+}
+
+async function startPhoto() {
+  const btn = $('#btnPhoto');
+  btn.disabled = true;
+  startMsg.className = 'msg';
+  startMsg.textContent = 'загружаю пример…';
+  try {
+    photo.src = 'assets/demo-face.jpg';
+    await new Promise((res, rej) => {
+      if (photo.complete && photo.naturalWidth) return res();
+      photo.onload = res;
+      photo.onerror = () => rej(new Error('фото не загрузилось'));
+    });
+    state.mode = 'photo';
+    state.img = photo;
+
+    await initLandmarker('IMAGE');
+    const res = landmarker.detect(photo);
+    state.face = res?.faceLandmarks?.[0] || null;
+    if (!state.face) {
+      startMsg.textContent = 'на фото не нашлось лицо';
+      btn.disabled = false;
+      return;
+    }
+    resizeCanvas();
+    enterGame();
+  } catch (e) {
+    console.error(e);
+    startMsg.className = 'msg';
+    startMsg.textContent = 'не получилось: ' + e.message;
+    btn.disabled = false;
+  }
+}
+
+function enterGame() {
+  startEl.classList.add('hidden');
+  hud.classList.add('on');
+  hintEl.classList.add('on');
+  setTimeout(() => hintEl.classList.remove('on'), 5000);
+}
+
+/* =========================================================
+   отрисовка
+   ========================================================= */
+function drawBase() {
+  if (state.mode === 'live') {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return false;
+    const s = Math.max(W / vw, H / vh);
+    const dw = vw * s, dh = vh * s;
+    cover = { s, ox: (W - dw) / 2, oy: (H - dh) / 2, vw, vh };
+    ctx.drawImage(video, cover.ox, cover.oy, dw, dh);
+    return true;
+  }
+  if (state.mode === 'photo' && state.img) {
+    const iw = state.img.naturalWidth, ih = state.img.naturalHeight;
+    if (!iw || !ih) return false;
+    const s = Math.max(W / iw, H / ih);
+    const dw = iw * s, dh = ih * s;
+    cover = { s, ox: (W - dw) / 2, oy: (H - dh) / 2, vw: iw, vh: ih };
+    ctx.drawImage(state.img, cover.ox, cover.oy, dw, dh);
+    return true;
+  }
+  return false;
+}
+
+let lastVideoTime = -1;
+let frameNo = 0;
+
+function loop(now) {
+  requestAnimationFrame(loop);
+  if (state.mode === 'idle') return;
+
+  if (state.mode === 'live' && landmarker && video.readyState >= 2) {
+    if (video.currentTime !== lastVideoTime) {
+      lastVideoTime = video.currentTime;
+      if ((frameNo++ % 2) === 0) {
+        try {
+          const res = landmarker.detectForVideo(video, now);
+          if (res?.faceLandmarks?.[0]) {
+            state.face = res.faceLandmarks[0];
+            state.lastFace = now;
+          } else if (now - state.lastFace > 500) {
+            state.face = null;
+          }
+        } catch (e) { /* кадр пропущен */ }
+      }
+    }
+  }
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (!drawBase()) {
+    ctx.fillStyle = '#0b0710';
+    ctx.fillRect(0, 0, W, H);
+    return;
+  }
+
+  if (!state.compare && state.face) drawMakeup();
+}
+
+/* =========================================================
+   кнопки
+   ========================================================= */
+$('#btnCam').addEventListener('click', startCamera);
+$('#btnPhoto').addEventListener('click', startPhoto);
+$('#btnBack').addEventListener('click', () => {
+  state.mode = 'idle';
+  state.face = null;
+  state.img = null;
+  hud.classList.remove('on');
+  startEl.classList.remove('hidden');
+  $('#btnCam').disabled = false;
+  $('#btnPhoto').disabled = false;
+  startMsg.textContent = '';
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
+  }
+});
+
+const holdBtn = $('#btnHold');
+const press = () => { state.compare = true; holdBtn.classList.add('down'); };
+const release = () => { state.compare = false; holdBtn.classList.remove('down'); };
+holdBtn.addEventListener('pointerdown', e => { e.preventDefault(); press(); });
+holdBtn.addEventListener('pointerup', release);
+holdBtn.addEventListener('pointercancel', release);
+holdBtn.addEventListener('pointerleave', release);
+
+/* =========================================================
+   старт
+   ========================================================= */
+resizeCanvas();
+requestAnimationFrame(loop);
+
+if (!window.isSecureContext) {
+  startMsg.className = 'msg';
+  startMsg.textContent = 'На iPhone живая камера работает только по https. Локально можно проверить «на фото».';
+}
+</script>
+</body>
+</html>
