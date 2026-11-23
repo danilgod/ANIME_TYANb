@@ -16,15 +16,13 @@
   #cam{position:absolute;top:0;left:0;width:2px;height:2px;opacity:0;pointer-events:none}
   #photo{display:none}
 
-  /* HUD */
   #hud{position:absolute;inset:0 0 auto 0;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0;
     display:flex;align-items:center;justify-content:space-between;gap:10px;
     opacity:0;transition:opacity .35s}
   #hud.on{opacity:1}
   .logo{color:#fff;font-size:15px;font-weight:800;letter-spacing:.6px;
     text-shadow:0 2px 12px rgba(0,0,0,.7)}
-  .logo b{color:#9ef3ee}
-  .logo i{font-style:normal;color:#c693ff}
+  .logo b{color:#ff9ec4}
   .hudBtns{display:flex;gap:8px;pointer-events:auto}
   .hudBtns button{height:40px;min-width:40px;padding:0 12px;border-radius:20px;
     border:1px solid rgba(255,255,255,.22);background:rgba(14,8,18,.5);color:#fff;
@@ -32,7 +30,7 @@
     backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
     transition:transform .12s,background .12s}
   .hudBtns button:active{transform:scale(.94)}
-  .hudBtns button.down{background:rgba(158,243,238,.9);color:#0b2222;border-color:#9ef3ee}
+  .hudBtns button.down{background:rgba(255,158,196,.92);color:#2a1220;border-color:#ff9ec4}
 
   #hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);
     transform:translateX(-50%) translateY(8px);white-space:nowrap;
@@ -42,11 +40,10 @@
     opacity:0;transition:opacity .3s,transform .3s;pointer-events:none}
   #hint.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
-  /* старт */
   #start{position:absolute;inset:0;display:grid;place-items:center;padding:24px;
     background:
-      radial-gradient(90% 60% at 50% 8%,rgba(120,60,160,.35),transparent 60%),
-      radial-gradient(80% 50% at 50% 100%,rgba(40,180,175,.18),transparent 60%),
+      radial-gradient(90% 60% at 50% 6%,rgba(255,150,190,.22),transparent 60%),
+      radial-gradient(80% 55% at 50% 100%,rgba(120,80,200,.25),transparent 60%),
       #0a0610;
     transition:opacity .45s;z-index:5;overflow:hidden}
   #start.hidden{opacity:0;pointer-events:none}
@@ -54,17 +51,17 @@
     background:repeating-linear-gradient(115deg,rgba(255,255,255,.028) 0 2px,transparent 2px 9px);
     pointer-events:none}
   .startCard{position:relative;z-index:1;width:100%;max-width:360px;text-align:center}
-  .kicker{font-size:11px;letter-spacing:3.4px;text-transform:uppercase;color:#9ef3ee;
-    font-weight:700;margin-bottom:16px;opacity:.85}
+  .kicker{font-size:11px;letter-spacing:3.4px;text-transform:uppercase;color:#ff9ec4;
+    font-weight:700;margin-bottom:16px;opacity:.9}
   h1{margin:0 0 8px;font-size:46px;line-height:.95;font-weight:900;color:#fff;letter-spacing:-1px}
-  h1 span{background:linear-gradient(90deg,#c693ff,#9ef3ee);
+  h1 span{background:linear-gradient(90deg,#ff9ec4,#c693ff);
     -webkit-background-clip:text;background-clip:text;color:transparent}
-  .sub{color:#c9b8d4;font-size:14px;line-height:1.55;margin:14px 0 26px}
+  .sub{color:#cdbfd6;font-size:14px;line-height:1.55;margin:14px 0 26px}
   button{font-family:inherit;cursor:pointer}
   .primary{display:block;width:100%;padding:17px;border:0;border-radius:16px;
-    font-size:16px;font-weight:800;color:#12060f;
-    background:linear-gradient(90deg,#c693ff,#9ef3ee);
-    box-shadow:0 12px 34px rgba(150,100,255,.28);transition:transform .15s,filter .15s}
+    font-size:16px;font-weight:800;color:#2a1220;
+    background:linear-gradient(90deg,#ff9ec4,#e6b3ff);
+    box-shadow:0 12px 34px rgba(255,140,190,.26);transition:transform .15s,filter .15s}
   .primary:active{transform:scale(.97)}
   .primary[disabled]{filter:grayscale(.55) brightness(.75);cursor:default}
   .ghost{display:block;width:100%;margin-top:10px;padding:15px;border-radius:16px;
@@ -84,7 +81,7 @@
   <img id="photo" alt="">
 
   <div id="hud">
-    <div class="logo">нефор<i>-</i>мейкап</div>
+    <div class="logo">нефор<b>-</b>мейкап</div>
     <div class="hudBtns">
       <button id="btnHold" title="Показать без макияжа">до/после</button>
       <button id="btnBack" title="Начать заново">↺</button>
@@ -97,7 +94,7 @@
     <div class="startCard">
       <div class="kicker">маска для tiktok</div>
       <h1>НЕФОР<br><span>МЕЙКАП</span></h1>
-      <p class="sub">Тяжёлая подводка с крылом, тёмные тени, бледная кожа и чёрные губы. Макияж ложится точно по лицу.</p>
+      <p class="sub">Чёрные волосы, бледная кожа, кукольная подводка, розовые румяна, глянцевые губы и пирсинг.</p>
       <button id="btnCam" class="primary">Включить камеру</button>
       <button id="btnPhoto" class="ghost">Посмотреть на фото</button>
       <div id="startMsg" class="msg"></div>
@@ -106,7 +103,7 @@
 </div>
 
 <script type="module">
-import { FaceLandmarker, FilesetResolver } from './vendor/mediapipe/vision_bundle.mjs';
+import { FaceLandmarker, ImageSegmenter, FilesetResolver } from './vendor/mediapipe/vision_bundle.mjs';
 
 const $ = s => document.querySelector(s);
 const frameEl = $('#frame');
@@ -125,6 +122,8 @@ const state = {
   img: null,
   compare: false,
   lastFace: 0,
+  hairOn: false,
+  faceOn: false,
 };
 
 /* =========================================================
@@ -138,6 +137,8 @@ function resizeCanvas() {
   H = Math.max(1, Math.round(r.height * DPR));
   canvas.width = W;
   canvas.height = H;
+  tintCanvas.width = W;
+  tintCanvas.height = H;
 }
 addEventListener('resize', resizeCanvas);
 addEventListener('orientationchange', () => setTimeout(resizeCanvas, 250));
@@ -151,25 +152,21 @@ const I = {
   LOWER_L: [33, 7, 163, 144, 145, 153, 154, 155, 133],
   UPPER_R: [263, 466, 388, 387, 386, 385, 384, 398, 362],
   LOWER_R: [263, 249, 390, 373, 374, 380, 381, 382, 362],
-  BROW_L: [70, 63, 105, 66, 107],
-  BROW_R: [300, 293, 334, 296, 336],
+  BROW_L_UP: [70, 63, 105, 66, 107],
+  BROW_L_LO: [46, 53, 52, 65, 55],
+  BROW_R_UP: [300, 293, 334, 296, 336],
+  BROW_R_LO: [276, 283, 282, 295, 285],
   LIPS_OUT: [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84, 181, 91, 146],
   LIPS_IN:  [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95],
-  OVAL: [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378,
-         400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21,
-         54, 103, 67, 109],
   CHEEK_L: 50, CHEEK_R: 280, NOSE_TIP: 4,
-  CHIN: 152, FOREHEAD: 10, JAW_L: 234, JAW_R: 454,
+  CHIN: 152, FOREHEAD: 10, LIP_BOTTOM: 17, LIP_L: 61, LIP_R: 291,
 };
 
 let cover = { s: 1, ox: 0, oy: 0, vw: 1, vh: 1 };
-
-function mapPoint(l) {
-  return {
-    x: cover.ox + l.x * cover.vw * cover.s,
-    y: cover.oy + l.y * cover.vh * cover.s,
-  };
-}
+const mapPoint = l => ({
+  x: cover.ox + l.x * cover.vw * cover.s,
+  y: cover.oy + l.y * cover.vh * cover.s,
+});
 const P = i => mapPoint(state.face[i]);
 
 /* =========================================================
@@ -229,23 +226,119 @@ function upNormals(pts) {
   });
 }
 
+function expandPoly(pts, k) {
+  const c = centroid(pts);
+  return pts.map(p => ({ x: c.x + (p.x - c.x) * k, y: c.y + (p.y - c.y) * k }));
+}
+
+/* =========================================================
+   сегментация: волосы и кожа
+   ========================================================= */
+const MASK_W = 256;
+
+const hairMask = document.createElement('canvas');
+const faceMask = document.createElement('canvas');
+hairMask.width = hairMask.height = MASK_W;
+faceMask.width = faceMask.height = MASK_W;
+const hmctx = hairMask.getContext('2d');
+const fmctx = faceMask.getContext('2d');
+const hairImg = hmctx.createImageData(MASK_W, MASK_W);
+const faceImg = fmctx.createImageData(MASK_W, MASK_W);
+
+const tintCanvas = document.createElement('canvas');
+const tctx = tintCanvas.getContext('2d');
+
+// временный холст для размытия краёв маски
+const maskTmp = document.createElement('canvas');
+maskTmp.width = maskTmp.height = MASK_W;
+const mtctx = maskTmp.getContext('2d');
+
+function softenMask(c2d, src) {
+  mtctx.setTransform(1, 0, 0, 1, 0, 0);
+  mtctx.clearRect(0, 0, MASK_W, MASK_W);
+  mtctx.drawImage(src, 0, 0);
+
+  c2d.clearRect(0, 0, MASK_W, MASK_W);
+  c2d.globalCompositeOperation = 'lighter';
+  c2d.globalAlpha = 1 / 9;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) c2d.drawImage(maskTmp, dx, dy);
+  }
+  c2d.globalAlpha = 1;
+  c2d.globalCompositeOperation = 'source-over';
+}
+
+// маска приходит в разрешении кадра, поэтому сжимаем её до 256×256
+function paintMask(mask) {
+  const mw = mask.width, mh = mask.height;
+  const arr = mask.getAsUint8Array();
+
+  const hd = hairImg.data, fd = faceImg.data;
+  for (let y = 0; y < MASK_W; y++) {
+    const sy = Math.min(mh - 1, (y * mh / MASK_W) | 0);
+    for (let x = 0; x < MASK_W; x++) {
+      const sx = Math.min(mw - 1, (x * mw / MASK_W) | 0);
+      const c = arr[sy * mw + sx];
+      const o = (y * MASK_W + x) * 4;
+      const hair = c === 1 ? 255 : 0;
+      const skin = c === 3 ? 255 : (c === 2 ? 170 : 0);
+      hd[o] = hd[o + 1] = hd[o + 2] = 255; hd[o + 3] = hair;
+      fd[o] = fd[o + 1] = fd[o + 2] = 255; fd[o + 3] = skin;
+    }
+  }
+  hmctx.putImageData(hairImg, 0, 0);
+  fmctx.putImageData(faceImg, 0, 0);
+  softenMask(hmctx, hairMask);
+  softenMask(fmctx, faceMask);
+
+  try { mask.close(); } catch (e) { /* уже закрыта */ }
+
+  state.hairOn = true;
+  state.faceOn = true;
+}
+
+function tintLayer(maskCanvas, color, alpha, blend) {
+  tctx.setTransform(1, 0, 0, 1, 0, 0);
+  tctx.globalCompositeOperation = 'source-over';
+  tctx.clearRect(0, 0, W, H);
+  tctx.fillStyle = color;
+  tctx.fillRect(0, 0, W, H);
+  tctx.globalCompositeOperation = 'destination-in';
+  tctx.imageSmoothingEnabled = true;
+  tctx.drawImage(maskCanvas, cover.ox, cover.oy, cover.vw * cover.s, cover.vh * cover.s);
+  tctx.globalCompositeOperation = 'source-over';
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.globalCompositeOperation = blend;
+  ctx.drawImage(tintCanvas, 0, 0);
+  ctx.restore();
+}
+
+function drawHair() {
+  if (!state.hairOn) return;
+  // обесцвечиваем и затемняем — получаются чёрные волосы с фактурой
+  tintLayer(hairMask, 'rgba(18,20,26,1)', .92, 'color');
+  tintLayer(hairMask, 'rgba(46,50,62,1)', .62, 'multiply');
+}
+
+function drawPaleSkin() {
+  if (!state.faceOn) return;
+  tintLayer(faceMask, 'rgba(255,240,240,1)', .14, 'screen');
+  tintLayer(faceMask, 'rgba(246,226,230,1)', .12, 'color');
+}
+
 /* =========================================================
    макияж
    ========================================================= */
-function drawTint() {
-  // общий холодный тон фильтра
-  ctx.fillStyle = 'rgba(176,160,214,.075)';
-  ctx.fillRect(0, 0, W, H);
-}
-
 function drawBlush(eyeD) {
   for (const idx of [I.CHEEK_L, I.CHEEK_R]) {
     const p = P(idx);
-    const r = eyeD * .55;
-    const g = ctx.createRadialGradient(p.x, p.y, r * .1, p.x, p.y, r);
-    g.addColorStop(0, 'rgba(168,44,96,.24)');
-    g.addColorStop(.55, 'rgba(150,40,88,.12)');
-    g.addColorStop(1, 'rgba(150,40,88,0)');
+    const r = eyeD * .62;
+    const g = ctx.createRadialGradient(p.x, p.y, r * .06, p.x, p.y, r);
+    g.addColorStop(0, 'rgba(255,120,165,.46)');
+    g.addColorStop(.45, 'rgba(255,120,165,.26)');
+    g.addColorStop(1, 'rgba(255,120,165,0)');
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, 7);
@@ -263,91 +356,67 @@ function drawEyeShadow(up, lo, dims) {
   ctx.save();
   ctx.translate(cen.x, cen.y);
   ctx.rotate(ang);
-  ctx.scale(1, 1.25);
+  ctx.scale(1, 1.2);
 
-  // широкое облако тени
-  const R = w * .88;
-  const cy = -h * .42;
-  let g = ctx.createRadialGradient(0, cy, R * .03, 0, cy, R);
-  g.addColorStop(0, 'rgba(44,8,50,.46)');
-  g.addColorStop(.38, 'rgba(52,12,60,.30)');
-  g.addColorStop(.72, 'rgba(58,18,66,.13)');
-  g.addColorStop(1, 'rgba(58,18,66,0)');
+  const R = w * .92;
+  let g = ctx.createRadialGradient(0, -h * .25, R * .03, 0, -h * .25, R);
+  g.addColorStop(0, 'rgba(96,44,60,.34)');
+  g.addColorStop(.45, 'rgba(92,40,56,.22)');
+  g.addColorStop(.78, 'rgba(88,36,52,.09)');
+  g.addColorStop(1, 'rgba(88,36,52,0)');
   ctx.fillStyle = g;
   ctx.beginPath();
-  ctx.arc(0, cy, R, 0, 7);
+  ctx.arc(0, -h * .25, R, 0, 7);
   ctx.fill();
 
-  // плотная тень у самого века
-  const R2 = w * .46;
-  g = ctx.createRadialGradient(0, -h * .12, 1, 0, -h * .12, R2);
-  g.addColorStop(0, 'rgba(34,4,40,.55)');
-  g.addColorStop(.6, 'rgba(38,8,46,.28)');
-  g.addColorStop(1, 'rgba(38,8,46,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(0, -h * .12, R2, 0, 7);
-  ctx.fill();
-
-  // растушёвка под нижним веком
-  const R3 = w * .40;
+  // тень под глазом
+  const R3 = w * .42;
   g = ctx.createRadialGradient(0, h * .55, 1, 0, h * .55, R3);
-  g.addColorStop(0, 'rgba(40,8,46,.30)');
-  g.addColorStop(1, 'rgba(40,8,46,0)');
+  g.addColorStop(0, 'rgba(80,32,46,.24)');
+  g.addColorStop(1, 'rgba(80,32,46,0)');
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.arc(0, h * .55, R3, 0, 7);
   ctx.fill();
 
-  // бирюзовый акцент у внешнего угла
-  const g2 = ctx.createRadialGradient(w * .46, -h * .55, 1, w * .46, -h * .55, w * .34);
-  g2.addColorStop(0, 'rgba(80,220,210,.34)');
-  g2.addColorStop(1, 'rgba(80,220,210,0)');
-  ctx.fillStyle = g2;
-  ctx.beginPath();
-  ctx.arc(w * .46, -h * .55, w * .34, 0, 7);
-  ctx.fill();
-
   ctx.restore();
 }
 
-function drawBrow(brow, eyeD) {
-  const w = Math.max(1.1, eyeD * .042);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+function drawBrow(upper, lower, eyeD) {
+  const w = eyeD * .012;
+  const nu = upNormals(upper);
 
-  // мягкая подложка
-  ctx.strokeStyle = 'rgba(28,16,30,.16)';
-  ctx.lineWidth = w * 1.7;
-  smoothPath(brow, false);
-  ctx.stroke();
-
-  // сами брови
-  ctx.strokeStyle = 'rgba(24,14,26,.85)';
-  ctx.lineWidth = w;
-  smoothPath(brow, false);
-  ctx.stroke();
-
-  // тонкие волоски
-  ctx.strokeStyle = 'rgba(60,40,66,.35)';
-  ctx.lineWidth = Math.max(.8, w * .16);
-  for (let i = 1; i < brow.length - 1; i++) {
-    const p = brow[i];
-    ctx.beginPath();
-    ctx.moveTo(p.x - w * .9, p.y - w * .35);
-    ctx.lineTo(p.x + w * .8, p.y - w * .8);
-    ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(upper[0].x + nu[0].x * w, upper[0].y + nu[0].y * w);
+  for (let i = 1; i < upper.length; i++) {
+    ctx.lineTo(upper[i].x + nu[i].x * w, upper[i].y + nu[i].y * w);
   }
+  for (let i = lower.length - 1; i >= 0; i--) {
+    const p = lower[i];
+    ctx.lineTo(p.x, p.y + Math.abs(w) * .8);
+  }
+  ctx.closePath();
+
+  ctx.fillStyle = 'rgba(20,12,24,.24)';
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(240,225,235,.10)';
+  ctx.lineWidth = Math.max(1, w * .8);
+  ctx.beginPath();
+  ctx.moveTo(lower[0].x, lower[0].y + w);
+  for (let i = 1; i < lower.length; i++) ctx.lineTo(lower[i].x, lower[i].y + w);
+  ctx.stroke();
 }
 
 function drawEyeLiner(up, lo, dims) {
   const { w, h, inner, outer } = dims;
-  if (h < w * .05) return;
+  if (h < w * .04) return;
 
   const nrm = upNormals(up);
   const n = up.length;
-  const tAt = k => w * (.135 - .095 * k);        // толще у внешнего угла
+  const tAt = k => w * (.155 - .105 * k);
 
+  // верхняя стрелка
   ctx.beginPath();
   ctx.moveTo(up[0].x, up[0].y);
   for (let i = 0; i < n; i++) {
@@ -356,172 +425,248 @@ function drawEyeLiner(up, lo, dims) {
   }
   for (let i = n - 1; i >= 0; i--) ctx.lineTo(up[i].x, up[i].y);
   ctx.closePath();
-  ctx.fillStyle = 'rgba(14,7,16,.95)';
+  ctx.fillStyle = 'rgba(10,5,12,.96)';
   ctx.fill();
 
-  // крыло
-  let dx = outer.x - centroid([outer, inner]).x;
-  let dy = outer.y - centroid([outer, inner]).y;
-  const dl = Math.hypot(dx, dy) || 1;
-  dx /= dl; dy /= dl;
-
+  // длинное крыло вверх
+  let dx = outer.x - inner.x, dy = outer.y - inner.y;
+  const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
   let ux = -dy, uy = dx;
   if (uy > 0) { ux = -ux; uy = -uy; }
 
-  const len = w * .60;
-  const tip = { x: outer.x + dx * len + ux * len * 1.05, y: outer.y + dy * len + uy * len * 1.05 };
-  const baseTop = { x: outer.x + nrm[0].x * tAt(0) * 1.15, y: outer.y + nrm[0].y * tAt(0) * 1.15 };
+  const len = w * .78;
+  const tip = { x: outer.x + dx * len + ux * len * .95, y: outer.y + dy * len + uy * len * .95 };
+  const baseTop = { x: outer.x + nrm[0].x * tAt(0) * 1.3, y: outer.y + nrm[0].y * tAt(0) * 1.3 };
   const ctrl = {
-    x: outer.x + dx * len * .52 + ux * len * .42,
-    y: outer.y + dy * len * .52 + uy * len * .42,
+    x: outer.x + dx * len * .55 + ux * len * .34,
+    y: outer.y + dy * len * .55 + uy * len * .34,
   };
-
   ctx.beginPath();
   ctx.moveTo(baseTop.x, baseTop.y);
   ctx.quadraticCurveTo(ctrl.x, ctrl.y, tip.x, tip.y);
-  ctx.quadraticCurveTo(outer.x + dx * w * .10, outer.y + dy * w * .10,
-                       outer.x + dx * w * .02, outer.y + dy * w * .02);
+  ctx.quadraticCurveTo(outer.x + dx * w * .06, outer.y + dy * w * .06,
+                       outer.x, outer.y);
   ctx.closePath();
-  ctx.fillStyle = 'rgba(14,7,16,.95)';
   ctx.fill();
 
-  // нижняя стрелка-растушёвка
-  ctx.strokeStyle = 'rgba(24,10,24,.55)';
-  ctx.lineWidth = Math.max(1, w * .045);
-  ctx.lineCap = 'round';
-  smoothPath(lo, false);
-  ctx.stroke();
-
-  ctx.strokeStyle = 'rgba(24,10,24,.22)';
-  ctx.lineWidth = Math.max(2, w * .12);
+  // нижнее веко — толстая линия
+  const nrmL = upNormals(lo);
   ctx.beginPath();
+  ctx.moveTo(lo[0].x, lo[0].y);
   for (let i = 0; i < lo.length; i++) {
-    const p = { x: lo[i].x, y: lo[i].y + w * .045 };
-    i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
+    const t = Math.max(1, w * (.075 - .02 * i));
+    ctx.lineTo(lo[i].x - nrmL[i].x * t * .2, lo[i].y - nrmL[i].y * t * .2 + t);
   }
-  ctx.stroke();
+  for (let i = lo.length - 1; i >= 0; i--) ctx.lineTo(lo[i].x, lo[i].y);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(10,5,12,.92)';
+  ctx.fill();
 
-  // две точки-тату под внешним уголком
-  const dotR = Math.max(1.2, w * .030);
-  ctx.fillStyle = 'rgba(16,8,18,.85)';
-  for (let k = 0; k < 2; k++) {
+  // ресницы-шипы: сверху и снизу
+  drawLashes(up, dims, -1, 6, .22, true);
+  drawLashes(lo, dims, 1, 8, .24, false);
+
+  // точка под глазом
+  ctx.fillStyle = 'rgba(12,6,14,.9)';
+  ctx.beginPath();
+  ctx.arc(outer.x + dx * w * .18, outer.y + w * .34, Math.max(1.4, w * .035), 0, 7);
+  ctx.fill();
+}
+
+function drawLashes(lid, dims, sign, count, lenK, outerHalf) {
+  const { cen, w } = dims;
+  const n = lid.length;
+  const from = outerHalf ? 0 : 1;
+  const to = outerHalf ? Math.floor(n * .55) : n - 1;
+
+  for (let k = 0; k < count; k++) {
+    const i = Math.round(from + (to - from) * (k / Math.max(1, count - 1)));
+    const p = lid[i];
+    let dx = p.x - cen.x, dy = p.y - cen.y;
+    const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+
+    // направляем наружу и вверх/вниз
+    dy = Math.abs(dy) * sign + (sign < 0 ? -.5 : .35);
+    const nl = Math.hypot(dx, dy) || 1; dx /= nl; dy /= nl;
+
+    const len = w * lenK * (.65 + .55 * (k / Math.max(1, count - 1)));
+    const wb = w * .030;
+    const px = -dy, py = dx;
+
     ctx.beginPath();
-    ctx.arc(outer.x + dx * w * (.10 + k * .13) + uy * -w * .02,
-            outer.y + dy * w * (.10 + k * .13) + w * (.12 + k * .10),
-            dotR, 0, 7);
+    ctx.moveTo(p.x + px * wb, p.y + py * wb);
+    ctx.lineTo(p.x - px * wb, p.y - py * wb);
+    ctx.lineTo(p.x + dx * len, p.y + dy * len);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(10,5,12,.95)';
     ctx.fill();
   }
 }
 
-function drawLips() {
-  const out = I.LIPS_OUT.map(P);
+function drawLips(eyeD) {
+  const out = expandPoly(I.LIPS_OUT.map(P), 1.07);
   const inn = I.LIPS_IN.map(P);
 
   const ys = out.map(p => p.y);
   const g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys));
-  g.addColorStop(0, '#5e1533');
-  g.addColorStop(.45, '#3c0b20');
-  g.addColorStop(1, '#561129');
+  g.addColorStop(0, '#e8aeb2');
+  g.addColorStop(.42, '#cf848d');
+  g.addColorStop(1, '#b46c78');
 
-  // кольцо помады: внешний контур минус рот
+  // помада кольцом, рот не закрашиваем
   ctx.beginPath();
   addSmoothClosed(out);
   addSmoothClosed(inn);
   ctx.fillStyle = g;
   ctx.fill('evenodd');
 
-  // контур губ
-  const eyeD = dist(P(I.L_OUT), P(I.R_OUT));
-  ctx.strokeStyle = 'rgba(14,3,9,.55)';
-  ctx.lineWidth = Math.max(1, eyeD * .012);
+  // контур
+  ctx.strokeStyle = 'rgba(120,50,65,.45)';
+  ctx.lineWidth = Math.max(1, eyeD * .009);
   smoothPath(out, true);
   ctx.stroke();
 
-  // тень внутри рта для объёма
-  smoothPath(inn, true);
-  ctx.fillStyle = 'rgba(14,3,9,.30)';
-  ctx.fill();
+  // объём: тень у уголков
+  const lc = P(I.LIP_L), rc = P(I.LIP_R);
+  const lipW = dist(lc, rc);
+  for (const c of [lc, rc]) {
+    const rg = ctx.createRadialGradient(c.x, c.y, 1, c.x, c.y, lipW * .28);
+    rg.addColorStop(0, 'rgba(120,40,60,.30)');
+    rg.addColorStop(1, 'rgba(120,40,60,0)');
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, lipW * .28, 0, 7);
+    ctx.fill();
+  }
 
-  // блик на нижней губе
-  const low = centroid([out[17], out[18], out[19]]);
-  const r = dist(out[0], out[19]) * .7;
-  const hg = ctx.createRadialGradient(low.x, low.y, 1, low.x, low.y, r);
-  hg.addColorStop(0, 'rgba(255,220,235,.26)');
-  hg.addColorStop(1, 'rgba(255,220,235,0)');
+  // глянец — только по кольцу губ, не поверх зубов
+  const bot = centroid([out[17], out[18], out[19]]);
+  const r = lipW * .32;
+
+  ctx.save();
+  ctx.beginPath();
+  addSmoothClosed(out);
+  addSmoothClosed(inn);
+  ctx.clip('evenodd');
+
+  let hg = ctx.createRadialGradient(bot.x, bot.y + eyeD * .01, 1, bot.x, bot.y + eyeD * .01, r);
+  hg.addColorStop(0, 'rgba(255,255,255,.42)');
+  hg.addColorStop(.55, 'rgba(255,240,245,.16)');
+  hg.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = hg;
   ctx.beginPath();
-  ctx.ellipse(low.x, low.y, r * .8, r * .4, 0, 0, 7);
+  ctx.ellipse(bot.x, bot.y + eyeD * .01, r, r * .38, 0, 0, 7);
   ctx.fill();
+
+  const topLip = centroid([out[0], out[1], out[2], out[3], out[4]]);
+  hg = ctx.createRadialGradient(topLip.x, topLip.y, 1, topLip.x, topLip.y, r * .55);
+  hg.addColorStop(0, 'rgba(255,255,255,.26)');
+  hg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hg;
+  ctx.beginPath();
+  ctx.ellipse(topLip.x, topLip.y, r * .55, r * .18, 0, 0, 7);
+  ctx.fill();
+
+  ctx.restore();
 }
 
-function drawFreckles(aff, eyeD) {
-  if (!aff) return;
+function drawPiercings(eyeD) {
+  const bottom = P(I.LIP_BOTTOM);
+  const l = P(I.LIP_L), r = P(I.LIP_R);
+  let dx = r.x - l.x, dy = r.y - l.y;
+  const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+  const lipW = dl;
+
+  for (const s of [-1, 1]) {
+    const x = bottom.x + dx * lipW * .13 * s;
+    const y = bottom.y + Math.abs(dy) * lipW * .10 + eyeD * .045;
+    const rad = eyeD * .042;
+    const g = ctx.createRadialGradient(x - rad * .35, y - rad * .4, rad * .05, x, y, rad);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(.4, '#d6d9e2');
+    g.addColorStop(.8, '#8b8f9c');
+    g.addColorStop(1, '#4f525c');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, 7);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(30,30,40,.5)';
+    ctx.lineWidth = Math.max(.8, rad * .12);
+    ctx.stroke();
+  }
+}
+
+function drawFreckles() {
   const spots = [
-    [-.30, .16], [-.18, .20], [-.06, .17], [.05, .21], [.17, .17], [.29, .20],
-    [-.24, .28], [-.10, .30], [.05, .29], [.20, .28],
-    [-.36, .24], [.35, .24],
+    [-.28, .17], [-.14, .21], [.01, .18], [.14, .22], [.28, .18],
+    [-.20, .27], [.07, .28], [.21, .27],
   ];
   for (let i = 0; i < spots.length; i++) {
-    const [a, b] = spots[i];
-    const [dx, dy] = [(a / 2.36 + .5) * 640, (b / 2.36 + .5) * 640];
-    const x = aff[4] + aff[0] * dx + aff[2] * dy;
-    const y = aff[5] + aff[1] * dx + aff[3] * dy;
-    const rnd = ((i * 37) % 13) / 13;
-    ctx.fillStyle = `rgba(88,44,64,${.28 + rnd * .22})`;
+    const p = affToScreen(spots[i][0], spots[i][1], 640);
+    const rnd = ((i * 37) % 11) / 11;
+    ctx.fillStyle = `rgba(120,80,90,${.22 + rnd * .16})`;
     ctx.beginPath();
-    ctx.arc(x, y, Math.max(1, eyeD * (.010 + rnd * .008)), 0, 7);
+    ctx.arc(p.x, p.y, 1 + rnd * 1.4, 0, 7);
     ctx.fill();
   }
 }
 
-function drawNoseHighlight() {
-  const p = P(I.NOSE_TIP);
-  const eyeD = dist(P(I.L_OUT), P(I.R_OUT));
-  const r = eyeD * .16;
-  const g = ctx.createRadialGradient(p.x, p.y - r * .4, 1, p.x, p.y - r * .4, r);
-  g.addColorStop(0, 'rgba(255,246,255,.22)');
-  g.addColorStop(1, 'rgba(255,246,255,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y - r * .4, r, 0, 7);
-  ctx.fill();
+let AFF = null;
+function computeAffine(eyeD) {
+  const eL = P(I.L_OUT), eR = P(I.R_OUT);
+  const top = P(I.FOREHEAD), chin = P(I.CHIN);
+  const dHead = dist(chin, top) || 1;
+  const ux = (eR.x - eL.x) / eyeD, uy = (eR.y - eL.y) / eyeD;
+  const vx = (chin.x - top.x) / dHead, vy = (chin.y - top.y) / dHead;
+  const mx = (eL.x + eR.x) / 2, my = (eL.y + eR.y) / 2;
+  const k = 2.36 / 640;
+  AFF = [
+    k * eyeD * ux, k * eyeD * uy,
+    k * dHead * vx, k * dHead * vy,
+    mx - 1.18 * eyeD * ux - 1.18 * dHead * vx,
+    my - 1.18 * eyeD * uy - 1.18 * dHead * vy,
+  ];
+}
+function affToScreen(a, b, cs) {
+  const dx = (a / 2.36 + .5) * cs;
+  const dy = (b / 2.36 + .5) * cs;
+  return { x: AFF[4] + AFF[0] * dx + AFF[2] * dy, y: AFF[5] + AFF[1] * dx + AFF[3] * dy };
 }
 
 function drawVignette() {
   const g = ctx.createRadialGradient(W / 2, H * .45, Math.min(W, H) * .34,
                                      W / 2, H * .45, Math.max(W, H) * .72);
   g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(1, 'rgba(24,4,26,.42)');
+  g.addColorStop(1, 'rgba(24,4,26,.38)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 }
 
 function drawMakeup() {
-  const face = state.face;
-  if (!face) return;
-
+  if (!state.face) return;
   const eyeD = dist(P(I.L_OUT), P(I.R_OUT));
   if (eyeD < 12) return;
 
-  drawTint();
+  computeAffine(eyeD);
+
   drawBlush(eyeD);
 
   const dimsL = eyeDims(I.UPPER_L.map(P), I.LOWER_L.map(P));
   const dimsR = eyeDims(I.UPPER_R.map(P), I.LOWER_R.map(P));
 
-  // тени → брови → подводка
   drawEyeShadow(I.UPPER_L.map(P), I.LOWER_L.map(P), dimsL);
   drawEyeShadow(I.UPPER_R.map(P), I.LOWER_R.map(P), dimsR);
 
-  drawBrow(I.BROW_L.map(P), eyeD);
-  drawBrow(I.BROW_R.map(P), eyeD);
+  drawBrow(I.BROW_L_UP.map(P), I.BROW_L_LO.map(P), eyeD);
+  drawBrow(I.BROW_R_UP.map(P), I.BROW_R_LO.map(P), eyeD);
 
   drawEyeLiner(I.UPPER_L.map(P), I.LOWER_L.map(P), dimsL);
   drawEyeLiner(I.UPPER_R.map(P), I.LOWER_R.map(P), dimsR);
 
-  drawLips();
-  drawNoseHighlight();
-  drawFreckles(computeAffine(eyeD), eyeD);
+  drawLips(eyeD);
+  drawPiercings(eyeD);
+  drawFreckles();
+
   drawVignette();
 }
 
@@ -534,50 +679,52 @@ function eyeDims(up, lo) {
   return { inner, outer, w, h, cen: centroid([...up, ...lo]) };
 }
 
-function computeAffine(eyeD) {
-  const eL = P(I.L_OUT), eR = P(I.R_OUT);
-  const top = P(I.FOREHEAD), chin = P(I.CHIN);
-  const dHead = dist(chin, top) || 1;
-  const ux = (eR.x - eL.x) / eyeD, uy = (eR.y - eL.y) / eyeD;
-  const vx = (chin.x - top.x) / dHead, vy = (chin.y - top.y) / dHead;
-  const mx = (eL.x + eR.x) / 2, my = (eL.y + eR.y) / 2;
-  const k = 2.36 / 640;
-  const ex = k * eyeD * ux, ey = k * eyeD * uy;
-  const fx = k * dHead * vx, fy = k * dHead * vy;
-  const tx = mx - 1.18 * eyeD * ux - 1.18 * dHead * vx;
-  const ty = my - 1.18 * eyeD * uy - 1.18 * dHead * vy;
-  return [ex, ey, fx, fy, tx, ty];
+/* =========================================================
+   модели
+   ========================================================= */
+let landmarker = null, lmMode = null;
+let segmenter = null, segMode = null;
+let fileset = null;
+
+async function getFileset() {
+  if (!fileset) fileset = await FilesetResolver.forVisionTasks('./vendor/mediapipe/wasm');
+  return fileset;
 }
 
-/* =========================================================
-   камера / фото
-   ========================================================= */
-let landmarker = null;
-let lmMode = null;
-
-async function initLandmarker(runningMode) {
-  if (landmarker && lmMode === runningMode) return landmarker;
-  const fileset = await FilesetResolver.forVisionTasks('./vendor/mediapipe/wasm');
+async function initLandmarker(mode) {
+  if (landmarker && lmMode === mode) return;
+  const fs = await getFileset();
   const opts = {
     baseOptions: { modelAssetPath: './vendor/mediapipe/face_landmarker.task', delegate: 'GPU' },
-    runningMode,
-    numFaces: 1,
+    runningMode: mode, numFaces: 1,
     outputFaceBlendshapes: false,
     outputFacialTransformationMatrixes: false,
     minFaceDetectionConfidence: .4,
     minFacePresenceConfidence: .4,
     minTrackingConfidence: .4,
   };
-  try {
-    landmarker = await FaceLandmarker.createFromOptions(fileset, opts);
-  } catch (e) {
-    opts.baseOptions.delegate = 'CPU';
-    landmarker = await FaceLandmarker.createFromOptions(fileset, opts);
-  }
-  lmMode = runningMode;
-  return landmarker;
+  try { landmarker = await FaceLandmarker.createFromOptions(fs, opts); }
+  catch (e) { opts.baseOptions.delegate = 'CPU'; landmarker = await FaceLandmarker.createFromOptions(fs, opts); }
+  lmMode = mode;
 }
 
+async function initSegmenter(mode) {
+  if (segmenter && segMode === mode) return;
+  const fs = await getFileset();
+  const opts = {
+    baseOptions: { modelAssetPath: './vendor/mediapipe/selfie_multiclass_256x256.tflite', delegate: 'GPU' },
+    runningMode: mode,
+    outputCategoryMask: true,
+    outputConfidenceMasks: false,
+  };
+  try { segmenter = await ImageSegmenter.createFromOptions(fs, opts); }
+  catch (e) { opts.baseOptions.delegate = 'CPU'; segmenter = await ImageSegmenter.createFromOptions(fs, opts); }
+  segMode = mode;
+}
+
+/* =========================================================
+   камера / фото
+   ========================================================= */
 async function startCamera() {
   const btn = $('#btnCam');
   btn.disabled = true;
@@ -593,8 +740,8 @@ async function startCamera() {
     await video.play();
     state.mode = 'live';
 
-    startMsg.textContent = 'загружаю трекер лица…';
-    await initLandmarker('VIDEO');
+    startMsg.textContent = 'загружаю трекер и сегментацию…';
+    await Promise.all([initLandmarker('VIDEO'), initSegmenter('VIDEO').catch(e => console.warn(e))]);
 
     resizeCanvas();
     enterGame();
@@ -624,12 +771,18 @@ async function startPhoto() {
     state.img = photo;
 
     await initLandmarker('IMAGE');
+    await initSegmenter('IMAGE').catch(e => console.warn(e));
+
     const res = landmarker.detect(photo);
     state.face = res?.faceLandmarks?.[0] || null;
     if (!state.face) {
       startMsg.textContent = 'на фото не нашлось лицо';
       btn.disabled = false;
       return;
+    }
+    if (segmenter) {
+      const sm = segmenter.segment(photo);
+      if (sm.categoryMask) paintMask(sm.categoryMask);
     }
     resizeCanvas();
     enterGame();
@@ -673,15 +826,16 @@ function drawBase() {
   return false;
 }
 
-let lastVideoTime = -1;
+let lastVideoTime = -1, segFrame = 0;
 
 function loop(now) {
   requestAnimationFrame(loop);
   if (state.mode === 'idle') return;
 
-  if (state.mode === 'live' && landmarker && video.readyState >= 2) {
-    if (video.currentTime !== lastVideoTime) {
-      lastVideoTime = video.currentTime;
+  if (state.mode === 'live' && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+
+    if (landmarker) {
       try {
         const res = landmarker.detectForVideo(video, now);
         if (res?.faceLandmarks?.[0]) {
@@ -690,7 +844,14 @@ function loop(now) {
         } else if (now - state.lastFace > 500) {
           state.face = null;
         }
-      } catch (e) { /* кадр пропущен */ }
+      } catch (e) { /* пропуск */ }
+    }
+
+    if (segmenter && (segFrame++ % 2) === 0) {
+      try {
+        const sm = segmenter.segmentForVideo(video, now);
+        if (sm.categoryMask) paintMask(sm.categoryMask);
+      } catch (e) { /* пропуск */ }
     }
   }
 
@@ -701,7 +862,11 @@ function loop(now) {
     return;
   }
 
-  if (!state.compare && state.face) drawMakeup();
+  if (state.compare) return;
+
+  drawHair();
+  drawPaleSkin();
+  drawMakeup();
 }
 
 /* =========================================================
@@ -713,6 +878,7 @@ $('#btnBack').addEventListener('click', () => {
   state.mode = 'idle';
   state.face = null;
   state.img = null;
+  state.hairOn = state.faceOn = false;
   hud.classList.remove('on');
   startEl.classList.remove('hidden');
   $('#btnCam').disabled = false;
