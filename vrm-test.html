@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VRM — тест</title>
+<style>
+  html,body{margin:0;height:100%;background:#17131c;overflow:hidden;
+    font-family:'Segoe UI',system-ui,sans-serif}
+  #c{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  .title{position:fixed;left:24px;top:18px;color:#fff;font-weight:800;font-size:22px}
+  .title span{color:#5fd6cf}
+  .badge{position:fixed;right:24px;top:20px;color:#cbbcc6;font-size:12px;
+    border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:6px 12px;
+    background:rgba(255,255,255,.05)}
+  .hud{position:fixed;left:24px;bottom:20px;color:#f3e6ee;font-size:14px;opacity:.75}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="title">VRM <span>—</span> тест</div>
+<div class="badge" id="badge">загрузка…</div>
+<div class="hud">Потяни мышкой · колесо — зум</div>
+
+<script src="three147.min.js"></script>
+<script src="GLTFLoader.js"></script>
+<script src="three-vrm.min.js"></script>
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+
+  const scene = new THREE.Scene();
+  const bg = document.createElement('canvas');
+  bg.width = 8; bg.height = 256;
+  const bx = bg.getContext('2d');
+  const grd = bx.createLinearGradient(0, 0, 0, 256);
+  grd.addColorStop(0, '#2a2331'); grd.addColorStop(.55, '#3a2b3c'); grd.addColorStop(1, '#1a141f');
+  bx.fillStyle = grd; bx.fillRect(0, 0, 8, 256);
+  const bgt = new THREE.CanvasTexture(bg);
+  bgt.encoding = THREE.sRGBEncoding;
+  scene.background = bgt;
+
+  const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, .01, 50);
+  camera.position.set(0, 1.1, 2.1);
+  camera.lookAt(0, 1.05, 0);
+
+  scene.add(new THREE.HemisphereLight(0xdfe7ff, 0x4a3540, 0.75));
+  const key = new THREE.DirectionalLight(0xfff1e6, 1.5);
+  key.position.set(1.4, 2.6, 2.2);
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0x8ff0ed, .7);
+  rim.position.set(-1, 2, -2.2);
+  scene.add(rim);
+  const fill = new THREE.DirectionalLight(0x9fc4ff, .45);
+  fill.position.set(-2, 1.2, 1.6);
+  scene.add(fill);
+
+  const doll = new THREE.Group();
+  scene.add(doll);
+
+  let vrm = null;
+  const loader = new THREE.GLTFLoader();
+
+  window.__status = 'loading';
+  loader.load('models/shino/Sendagaya%20Shino.vrm', gltf => {
+    THREE_VRM.VRM.from(gltf).then(v => {
+      window.__status = 'loaded';
+      vrm = v;
+      const obj = gltf.scene;
+      const box = new THREE.Box3().setFromObject(obj);
+      const size = new THREE.Vector3(); box.getSize(size);
+      const s = 1.6 / size.y;
+      obj.scale.setScalar(s);
+      const b2 = new THREE.Box3().setFromObject(obj);
+      obj.position.y -= b2.min.y;
+      obj.position.x -= (b2.min.x + b2.max.x) / 2;
+      obj.position.z -= (b2.min.z + b2.max.z) / 2;
+      obj.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
+      doll.add(obj);
+      obj.rotation.y = Math.PI;
+      window.__vrm = vrm;
+      window.__model = obj;
+      document.getElementById('badge').textContent = 'VRM OK';
+    }).catch(err => {
+      window.__status = 'error: ' + err;
+      document.getElementById('badge').textContent = 'ошибка';
+      console.error(err);
+    });
+  }, undefined, err => {
+    window.__status = 'error: ' + err;
+    document.getElementById('badge').textContent = 'ошибка';
+    console.error(err);
+  });
+
+  let yaw = 0, targetYaw = 0, dist = 2.1, pitch = 0, targetPitch = 0, drag = false, lx = 0, ly = 0;
+  canvas.addEventListener('pointerdown', e => { drag = true; lx = e.clientX; ly = e.clientY; });
+  canvas.addEventListener('pointermove', e => {
+    if (!drag) return;
+    targetYaw += (e.clientX - lx) * .008;
+    targetPitch = Math.max(-.3, Math.min(.3, targetPitch + (e.clientY - ly) * .004));
+    lx = e.clientX; ly = e.clientY;
+  });
+  canvas.addEventListener('pointerup', () => drag = false);
+  canvas.addEventListener('wheel', e => { e.preventDefault(); dist = Math.max(.6, Math.min(5, dist + e.deltaY * .0015)); }, { passive: false });
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  window.__setYaw = v => targetYaw = v;
+  window.__setDist = v => dist = v;
+
+  const clock = new THREE.Clock();
+  function tick() {
+    requestAnimationFrame(tick);
+    const dt = clock.getDelta();
+    if (vrm) vrm.update(dt);
+    yaw += (targetYaw - yaw) * .08;
+    pitch += (targetPitch - pitch) * .08;
+    doll.rotation.y = yaw;
+    camera.position.set(0, 1.1 + pitch * .3, dist);
+    camera.lookAt(0, 1.05 + pitch * .15, 0);
+    renderer.render(scene, camera);
+  }
+  tick();
+})();
+</script>
+</body>
+</html>
