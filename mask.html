@@ -674,7 +674,6 @@ function drawBase() {
 }
 
 let lastVideoTime = -1;
-let frameNo = 0;
 
 function loop(now) {
   requestAnimationFrame(loop);
@@ -683,17 +682,15 @@ function loop(now) {
   if (state.mode === 'live' && landmarker && video.readyState >= 2) {
     if (video.currentTime !== lastVideoTime) {
       lastVideoTime = video.currentTime;
-      if ((frameNo++ % 2) === 0) {
-        try {
-          const res = landmarker.detectForVideo(video, now);
-          if (res?.faceLandmarks?.[0]) {
-            state.face = res.faceLandmarks[0];
-            state.lastFace = now;
-          } else if (now - state.lastFace > 500) {
-            state.face = null;
-          }
-        } catch (e) { /* кадр пропущен */ }
-      }
+      try {
+        const res = landmarker.detectForVideo(video, now);
+        if (res?.faceLandmarks?.[0]) {
+          state.face = res.faceLandmarks[0];
+          state.lastFace = now;
+        } else if (now - state.lastFace > 500) {
+          state.face = null;
+        }
+      } catch (e) { /* кадр пропущен */ }
     }
   }
 
