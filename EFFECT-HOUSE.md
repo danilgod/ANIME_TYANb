@@ -7,18 +7,40 @@
 
 ## Что в `assets/effecthouse/`
 
+**Быстрый путь — одна текстура на всё лицо:**
+
 | Файл | Размер | Куда в Effect House |
 | --- | --- | --- |
-| `eye_makeup_900x450.png` | 900×450 | Face Mask → **Eyes** (тени, брови, подводка с крылом, нижняя линия) |
-| `lashes_900x450.png` | 900×450 | Face Mask → **Eyelashes** (ресницы-шипы сверху и снизу) |
-| `lips_520x260.png` | 520×260 | Face Mask → **Lips** (глянцевые розовые губы, рот прозрачный) |
-| `skin_pale_1024.png` | 1024×1024 | Face Mask → **Whole face** (бледный тон, opacity ~40 %) |
-| `details_1024.png` | 1024×1024 | Face Mask → **Whole face** (румяна, веснушки, пирсинг) |
+| `full_look_1024.png` | 1024×1024 | Face Mask → **Whole face** — весь макияж сразу: подводка с крылом, ресницы, брови, губы, румяна, веснушки, пирсинг |
+| `skin_pale_1024.png` | 1024×1024 | Face Mask → **Whole face** — бледный тон, opacity ~40 % |
+
+**Раздельные слои (если надо крутить части отдельно):**
+
+| Файл | Размер | Куда |
+| --- | --- | --- |
+| `eye_makeup_900x450.png` | 900×450 | Face Mask → Eyes |
+| `lashes_900x450.png` | 900×450 | Face Mask → Eyelashes |
+| `lips_520x260.png` | 520×260 | Face Mask → Lips |
+| `details_1024.png` | 1024×1024 | Face Mask → Whole face (румяна, веснушки, пирсинг) |
 
 Лимиты TikTok соблюдены: каждая картинка ≤ 1024 px и < 1 МБ, пакет
 собирается меньше 8 МБ.
 
-## Шаги
+## Шаги (быстрый путь, 4 действия)
+
+1. **New Project → Face.**
+2. Перетащить `full_look_1024.png` и `skin_pale_1024.png` в панель
+   **Assets**.
+3. Hierarchy → `+` → Face Effects → **Face Mask** → в Inspector
+   `Face Region = Whole face`, `Texture = skin_pale_1024.png`,
+   Opacity `0.4`, Blend `Soft Light`.
+4. Ещё один **Face Mask** → `Face Region = Whole face`,
+   `Texture = full_look_1024.png`, Opacity `1`.
+5. Чёрные волосы: `+` → Face Effects → **Hair Segmentation** + Color
+   Adjust (затемнить и обесцветить).
+6. `Test performance` → `Submit`.
+
+## Шаги (раздельные слои, если нужен контроль)
 
 1. **Установить Effect House** (Windows 10/11). Логин — по QR-коду через
    приложение TikTok: Профиль → Добавить друзей → сканер.
